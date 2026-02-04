@@ -20,7 +20,7 @@ export default function HomePage() {
             <Badge variant="secondary" className="mb-4">
               The easiest way to run sport boards
             </Badge>
-            <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-6">
+            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6">
               Sport boards. Real prizes.
               <br />
               <span className="text-primary">Automated payouts.</span>

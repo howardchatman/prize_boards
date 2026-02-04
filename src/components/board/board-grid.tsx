@@ -45,7 +45,7 @@ export function BoardGrid({
   };
 
   const getSquareClasses = (status: string) => {
-    const baseClasses = 'aspect-square flex items-center justify-center text-xs font-medium transition-colors border';
+    const baseClasses = 'aspect-square flex items-center justify-center text-[10px] sm:text-xs font-medium transition-colors border';
 
     switch (status) {
       case 'available':
@@ -68,17 +68,17 @@ export function BoardGrid({
   };
 
   return (
-    <div className="w-full overflow-x-auto">
-      <div className="min-w-[500px]">
+    <div className="w-full">
+      <div className="w-full">
         {/* Header row with column digits */}
-        <div className="grid grid-cols-11 gap-0.5 mb-0.5">
-          <div className="aspect-square bg-gray-800 text-white flex items-center justify-center text-xs font-bold rounded-tl">
+        <div className="grid grid-cols-11 gap-px sm:gap-0.5 mb-px sm:mb-0.5">
+          <div className="aspect-square bg-gray-800 text-white flex items-center justify-center text-[10px] sm:text-xs font-bold rounded-tl">
             {/* Corner cell */}
           </div>
           {colDigits.map((num, i) => (
             <div
               key={`col-${i}`}
-              className="aspect-square bg-gray-800 text-white flex items-center justify-center text-sm font-bold"
+              className="aspect-square bg-gray-800 text-white flex items-center justify-center text-xs sm:text-sm font-bold"
             >
               {num}
             </div>
@@ -87,9 +87,9 @@ export function BoardGrid({
 
         {/* Grid rows */}
         {grid.map((row, rowIdx) => (
-          <div key={`row-${rowIdx}`} className="grid grid-cols-11 gap-0.5 mb-0.5">
+          <div key={`row-${rowIdx}`} className="grid grid-cols-11 gap-px sm:gap-0.5 mb-px sm:mb-0.5">
             {/* Row digit */}
-            <div className="aspect-square bg-gray-800 text-white flex items-center justify-center text-sm font-bold">
+            <div className="aspect-square bg-gray-800 text-white flex items-center justify-center text-xs sm:text-sm font-bold">
               {rowDigits[rowIdx]}
             </div>
             {/* Squares */}
@@ -118,7 +118,7 @@ export function BoardGrid({
         ))}
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-4 mt-4 text-sm">
+        <div className="flex flex-wrap gap-2 sm:gap-4 mt-4 text-xs sm:text-sm">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-white border"></div>
             <span>Available</span>
