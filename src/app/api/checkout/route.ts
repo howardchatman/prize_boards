@@ -49,22 +49,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Square is already claimed' }, { status: 400 });
     }
 
-    // Calculate platform fee based on board's snapshot fee
-    const platformFeePercent = board.platform_fee_percent / 100; // Convert to decimal
-    const platformFee = Math.round(board.square_price_cents * platformFeePercent);
+    // Atomically reserve the square using RPC function
+    const { error: reserveError } = await supabase
+      .rpc('reserve_square', { p_square_id: squareId });
 
-    // Mark square as reserved before creating checkout session
-    const { error: updateError } = await supabase
-      .from('squares')
-      .update({
-        claimed_by: user.id,
-        status: 'reserved',
-      })
-      .eq('id', squareId)
-      .eq('status', 'available'); // Only update if still available
-
-    if (updateError) {
-      return NextResponse.json({ error: 'Failed to reserve square' }, { status: 500 });
+    if (reserveError) {
+      console.error('Reserve error:', reserveError);
+      return NextResponse.json({ error: 'Square is no longer available' }, { status: 409 });
     }
 
     // Create Stripe Checkout session

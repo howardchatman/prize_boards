@@ -456,3 +456,56 @@ with check (
     where b.id = board_scores.board_id and b.host_id = auth.uid()
   )
 );
+
+-- -------------------------
+-- Functions
+-- -------------------------
+
+-- Atomic square reservation function (for checkout flow)
+create or replace function public.reserve_square(p_square_id uuid)
+returns public.squares
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  s public.squares;
+begin
+  update public.squares
+  set status = 'reserved',
+      claimed_by = auth.uid(),
+      claimed_at = now()
+  where id = p_square_id
+    and status = 'available'
+  returning * into s;
+
+  if not found then
+    raise exception 'Square is no longer available';
+  end if;
+
+  return s;
+end $$;
+
+-- Atomic square claiming function (for webhook/admin after payment)
+create or replace function public.claim_square(p_square_id uuid)
+returns public.squares
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  s public.squares;
+begin
+  update public.squares
+  set status = 'claimed',
+      claimed_at = now()
+  where id = p_square_id
+    and (status = 'available' or status = 'reserved')
+  returning * into s;
+
+  if not found then
+    raise exception 'Square is no longer available';
+  end if;
+
+  return s;
+end $$;
