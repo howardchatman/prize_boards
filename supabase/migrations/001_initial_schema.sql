@@ -317,12 +317,15 @@ on public.subscriptions for select
 using (auth.uid() = user_id);
 
 -- Boards:
--- Public can read if is_public OR they know invite_code (handled in app by querying with code).
--- For SQL-only simplicity: allow read of public boards; invite-code access should be via server-side route.
+-- Only visible if explicitly public or you're the host
+-- Invite-code access is handled at the app layer
 drop policy if exists "boards_select_public" on public.boards;
 create policy "boards_select_public"
 on public.boards for select
-using (is_public = true or status in ('open', 'locked', 'completed'));
+using (
+  is_public = true
+  or host_id = auth.uid()
+);
 
 -- Host can manage their boards
 drop policy if exists "boards_host_all" on public.boards;
@@ -332,7 +335,8 @@ using (auth.uid() = host_id)
 with check (auth.uid() = host_id);
 
 -- Squares:
--- Anyone can read squares for visible boards
+-- Readable if board is public or you're the host
+-- Invite-code access is handled at the app layer with service role
 drop policy if exists "squares_select_visible" on public.squares;
 create policy "squares_select_visible"
 on public.squares for select
@@ -340,7 +344,7 @@ using (
   exists (
     select 1 from public.boards b
     where b.id = squares.board_id
-      and (b.is_public = true or b.status in ('open', 'locked', 'completed') or b.host_id = auth.uid())
+      and (b.is_public = true or b.host_id = auth.uid())
   )
 );
 

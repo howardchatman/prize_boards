@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { PublicBoardView } from '@/components/board/public-board-view';
@@ -14,19 +14,23 @@ interface Props {
 export default async function PublicBoardPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
+  const adminSupabase = createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  const { data: board } = await supabase
+  // Use admin client to bypass RLS for invite-code style access
+  // The board URL itself acts as the invite mechanism
+  const { data: board } = await adminSupabase
     .from('boards')
     .select('*, host:profiles!boards_host_id_fkey(full_name)')
     .eq('id', id)
     .single();
 
+  // Only show non-draft boards
   if (!board || board.status === 'draft') {
     notFound();
   }
 
-  const { data: squares } = await supabase
+  const { data: squares } = await adminSupabase
     .from('squares')
     .select('*')
     .eq('board_id', id);
