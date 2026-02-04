@@ -25,11 +25,7 @@ export default function HomePage() {
               <br />
               <span className="text-primary">Automated payouts.</span>
             </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-4">
-              Create 10×10 boards, invite participants, collect payments online, and automatically
-              distribute prizes based on predefined outcomes.
-            </p>
-            <p className="text-sm text-gray-500 mb-8">
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
               Hosts set the rules. Fees are shown upfront. Payouts are automatic.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
