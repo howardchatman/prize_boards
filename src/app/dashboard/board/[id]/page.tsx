@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { BoardGrid } from '@/components/board/board-grid';
 import { BoardActions } from '@/components/board/board-actions';
+import { ShareBoard } from '@/components/board/share-board';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -211,44 +212,21 @@ export default async function BoardDetailPage({ params }: Props) {
         </Card>
       )}
 
-      {/* Share Link */}
+      {/* Share Board */}
       {board.status === 'open' && (
         <Card>
           <CardHeader>
             <CardTitle>Share This Board</CardTitle>
             <CardDescription>
-              Send this link or invite code to players so they can join
+              Send this link to players so they can join and claim squares
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-500 mb-2">Share Link:</p>
-              <div className="flex gap-2">
-                <code className="flex-1 bg-gray-100 p-3 rounded text-sm overflow-x-auto">
-                  {typeof window !== 'undefined' ? `${window.location.origin}/board/${id}` : `/board/${id}`}
-                </code>
-                <Button
-                  variant="outline"
-                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/board/${id}`)}
-                >
-                  Copy
-                </Button>
-              </div>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500 mb-2">Invite Code:</p>
-              <div className="flex gap-2">
-                <code className="flex-1 bg-gray-100 p-3 rounded text-sm font-mono text-lg">
-                  {board.invite_code}
-                </code>
-                <Button
-                  variant="outline"
-                  onClick={() => navigator.clipboard.writeText(board.invite_code)}
-                >
-                  Copy
-                </Button>
-              </div>
-            </div>
+          <CardContent>
+            <ShareBoard
+              boardId={id}
+              boardTitle={board.title}
+              inviteCode={board.invite_code}
+            />
           </CardContent>
         </Card>
       )}

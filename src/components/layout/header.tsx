@@ -86,6 +86,9 @@ export function Header() {
                   <Link href="/dashboard/player">My Boards</Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/dashboard/subscription">Subscription</Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleSignOut}>
                   Sign out
                 </DropdownMenuItem>

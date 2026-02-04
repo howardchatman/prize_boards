@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { PublicBoardView } from '@/components/board/public-board-view';
+import { ShareBoard } from '@/components/board/share-board';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import type { PayoutRule } from '@/types/database';
@@ -153,6 +154,25 @@ export default async function PublicBoardPage({ params }: Props) {
                   <li>Your winning digit is determined by the last digit of each team&apos;s score</li>
                   <li>If your square matches the score, you win that period&apos;s prize!</li>
                 </ol>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Share with friends */}
+          {board.status === 'open' && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Invite Friends</CardTitle>
+                <CardDescription>
+                  Share this board with friends so they can join too
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ShareBoard
+                  boardId={id}
+                  boardTitle={board.title}
+                  inviteCode={board.invite_code}
+                />
               </CardContent>
             </Card>
           )}
