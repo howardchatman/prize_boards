@@ -21,7 +21,7 @@ export function useAuth() {
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', user.id)
+          .eq('user_id', user.id)
           .single();
         setProfile(profile);
       }
@@ -40,7 +40,7 @@ export function useAuth() {
           const { data: profile } = await supabase
             .from('profiles')
             .select('*')
-            .eq('id', session.user.id)
+            .eq('user_id', session.user.id)
             .single();
           setProfile(profile);
         } else {

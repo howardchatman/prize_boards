@@ -8,13 +8,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import type { Board, Score, ScorePeriod } from '@/types/database';
+import type { Board, BoardScore, PayoutRule } from '@/types/database';
 
-const PERIODS: { id: ScorePeriod; label: string }[] = [
-  { id: 'q1', label: 'Quarter 1' },
-  { id: 'q2', label: 'Halftime (Q2)' },
-  { id: 'q3', label: 'Quarter 3' },
-  { id: 'final', label: 'Final' },
+type EventKey = 'Q1' | 'HALF' | 'Q3' | 'FINAL';
+
+const EVENTS: { id: EventKey; label: string }[] = [
+  { id: 'Q1', label: 'Quarter 1' },
+  { id: 'HALF', label: 'Halftime' },
+  { id: 'Q3', label: 'Quarter 3' },
+  { id: 'FINAL', label: 'Final' },
 ];
 
 export default function ScoresPage() {
@@ -23,12 +25,12 @@ export default function ScoresPage() {
   const boardId = params.id as string;
 
   const [board, setBoard] = useState<Board | null>(null);
-  const [existingScores, setExistingScores] = useState<Score[]>([]);
-  const [scores, setScores] = useState<Record<ScorePeriod, { teamA: string; teamB: string }>>({
-    q1: { teamA: '', teamB: '' },
-    q2: { teamA: '', teamB: '' },
-    q3: { teamA: '', teamB: '' },
-    final: { teamA: '', teamB: '' },
+  const [existingScores, setExistingScores] = useState<BoardScore[]>([]);
+  const [scores, setScores] = useState<Record<EventKey, { teamA: string; teamB: string }>>({
+    Q1: { teamA: '', teamB: '' },
+    HALF: { teamA: '', teamB: '' },
+    Q3: { teamA: '', teamB: '' },
+    FINAL: { teamA: '', teamB: '' },
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -46,25 +48,28 @@ export default function ScoresPage() {
         .single();
 
       if (boardData) {
-        setBoard(boardData);
+        setBoard(boardData as Board);
       }
 
       // Load existing scores
       const { data: scoresData } = await supabase
-        .from('scores')
+        .from('board_scores')
         .select('*')
         .eq('board_id', boardId);
 
       if (scoresData) {
-        setExistingScores(scoresData);
+        setExistingScores(scoresData as BoardScore[]);
 
         // Populate form with existing scores
         const newScores = { ...scores };
         scoresData.forEach((score) => {
-          newScores[score.period as ScorePeriod] = {
-            teamA: score.team_a_score.toString(),
-            teamB: score.team_b_score.toString(),
-          };
+          const eventKey = score.event_key as EventKey;
+          if (eventKey in newScores) {
+            newScores[eventKey] = {
+              teamA: score.team_a_score.toString(),
+              teamB: score.team_b_score.toString(),
+            };
+          }
         });
         setScores(newScores);
       }
@@ -76,14 +81,14 @@ export default function ScoresPage() {
   }, [boardId]);
 
   const handleScoreChange = (
-    period: ScorePeriod,
+    eventKey: EventKey,
     team: 'teamA' | 'teamB',
     value: string
   ) => {
     setScores((prev) => ({
       ...prev,
-      [period]: {
-        ...prev[period],
+      [eventKey]: {
+        ...prev[eventKey],
         [team]: value,
       },
     }));
@@ -94,17 +99,15 @@ export default function ScoresPage() {
 
     setSaving(true);
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
 
-    // Determine which periods to save based on payout type
-    const periodsToSave = board.payout_type === 'standard'
-      ? ['final']
-      : ['q1', 'q2', 'q3', 'final'];
+    // Determine which events to save based on payout rules
+    const payoutRules = board.payout_rules as PayoutRule[];
+    const eventsToSave = payoutRules.map(r => r.event);
 
     try {
-      for (const period of periodsToSave) {
-        const score = scores[period as ScorePeriod];
-        if (!score.teamA || !score.teamB) continue;
+      for (const eventKey of eventsToSave) {
+        const score = scores[eventKey as EventKey];
+        if (!score || !score.teamA || !score.teamB) continue;
 
         const teamAScore = parseInt(score.teamA);
         const teamBScore = parseInt(score.teamB);
@@ -112,11 +115,11 @@ export default function ScoresPage() {
         if (isNaN(teamAScore) || isNaN(teamBScore)) continue;
 
         // Upsert score
-        const existingScore = existingScores.find((s) => s.period === period);
+        const existingScore = existingScores.find((s) => s.event_key === eventKey);
 
         if (existingScore) {
           await supabase
-            .from('scores')
+            .from('board_scores')
             .update({
               team_a_score: teamAScore,
               team_b_score: teamBScore,
@@ -124,13 +127,12 @@ export default function ScoresPage() {
             .eq('id', existingScore.id);
         } else {
           await supabase
-            .from('scores')
+            .from('board_scores')
             .insert({
               board_id: boardId,
-              period,
+              event_key: eventKey,
               team_a_score: teamAScore,
               team_b_score: teamBScore,
-              entered_by: user?.id,
             });
         }
       }
@@ -164,7 +166,7 @@ export default function ScoresPage() {
         throw new Error(data.error || 'Failed to process payouts');
       }
 
-      toast.success(`Payouts processed! ${data.payoutsCreated} winners identified.`);
+      toast.success(`Payouts processed! ${data.payoutEventsCreated} winners identified.`);
       router.push(`/dashboard/board/${boardId}`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to process payouts');
@@ -200,15 +202,15 @@ export default function ScoresPage() {
     );
   }
 
-  const periodsToShow = board.payout_type === 'standard'
-    ? PERIODS.filter((p) => p.id === 'final')
-    : PERIODS;
+  // Get events from payout rules
+  const payoutRules = board.payout_rules as PayoutRule[];
+  const eventsToShow = EVENTS.filter(e => payoutRules.some(r => r.event === e.id));
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Enter Scores</h1>
-        <p className="text-gray-600">{board.name}</p>
+        <p className="text-gray-600">{board.title}</p>
       </div>
 
       <Card>
@@ -220,41 +222,41 @@ export default function ScoresPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {periodsToShow.map((period) => (
-              <div key={period.id} className="space-y-2">
-                <Label className="text-base font-medium">{period.label}</Label>
+            {eventsToShow.map((event) => (
+              <div key={event.id} className="space-y-2">
+                <Label className="text-base font-medium">{event.label}</Label>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor={`${period.id}-teamA`} className="text-sm text-gray-500">
+                    <Label htmlFor={`${event.id}-teamA`} className="text-sm text-gray-500">
                       Team A Score
                     </Label>
                     <Input
-                      id={`${period.id}-teamA`}
+                      id={`${event.id}-teamA`}
                       type="number"
                       min="0"
                       placeholder="0"
-                      value={scores[period.id].teamA}
-                      onChange={(e) => handleScoreChange(period.id, 'teamA', e.target.value)}
+                      value={scores[event.id].teamA}
+                      onChange={(e) => handleScoreChange(event.id, 'teamA', e.target.value)}
                     />
                   </div>
                   <div>
-                    <Label htmlFor={`${period.id}-teamB`} className="text-sm text-gray-500">
+                    <Label htmlFor={`${event.id}-teamB`} className="text-sm text-gray-500">
                       Team B Score
                     </Label>
                     <Input
-                      id={`${period.id}-teamB`}
+                      id={`${event.id}-teamB`}
                       type="number"
                       min="0"
                       placeholder="0"
-                      value={scores[period.id].teamB}
-                      onChange={(e) => handleScoreChange(period.id, 'teamB', e.target.value)}
+                      value={scores[event.id].teamB}
+                      onChange={(e) => handleScoreChange(event.id, 'teamB', e.target.value)}
                     />
                   </div>
                 </div>
-                {scores[period.id].teamA && scores[period.id].teamB && (
+                {scores[event.id].teamA && scores[event.id].teamB && (
                   <p className="text-sm text-gray-500">
-                    Winning square: Row {parseInt(scores[period.id].teamA) % 10},
-                    Column {parseInt(scores[period.id].teamB) % 10}
+                    Winning square: Row {parseInt(scores[event.id].teamA) % 10},
+                    Column {parseInt(scores[event.id].teamB) % 10}
                   </p>
                 )}
               </div>

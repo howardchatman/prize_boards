@@ -32,18 +32,18 @@ export async function POST(request: Request) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
-        const { board_id, square_id } = session.metadata || {};
+        const { board_id, square_id, user_id } = session.metadata || {};
 
         if (!square_id) {
           console.error('Missing square_id in session metadata');
           break;
         }
 
-        // Update square as paid
+        // Update square as claimed
         const { error: updateError } = await supabase
           .from('squares')
           .update({
-            payment_status: 'paid',
+            status: 'claimed',
             claimed_at: new Date().toISOString(),
           })
           .eq('id', square_id);
@@ -53,23 +53,16 @@ export async function POST(request: Request) {
           throw updateError;
         }
 
-        // Update board total pot
-        if (board_id) {
-          const { data: board } = await supabase
-            .from('boards')
-            .select('square_price, total_pot')
-            .eq('id', board_id)
-            .single();
+        // Update entry payment status
+        await supabase
+          .from('entries')
+          .update({
+            payment_status: 'succeeded',
+            stripe_payment_intent_id: session.payment_intent as string,
+          })
+          .eq('stripe_checkout_session_id', session.id);
 
-          if (board) {
-            await supabase
-              .from('boards')
-              .update({ total_pot: board.total_pot + board.square_price })
-              .eq('id', board_id);
-          }
-        }
-
-        console.log(`Square ${square_id} marked as paid`);
+        console.log(`Square ${square_id} marked as claimed`);
         break;
       }
 
@@ -79,16 +72,21 @@ export async function POST(request: Request) {
 
         if (!square_id) break;
 
-        // Reset square to unpaid if payment wasn't completed
+        // Reset square to available if payment wasn't completed
         await supabase
           .from('squares')
           .update({
-            player_id: null,
-            payment_status: 'unpaid',
-            payment_intent_id: null,
+            claimed_by: null,
+            status: 'available',
           })
           .eq('id', square_id)
-          .eq('payment_status', 'pending');
+          .eq('status', 'reserved');
+
+        // Update entry payment status
+        await supabase
+          .from('entries')
+          .update({ payment_status: 'canceled' })
+          .eq('stripe_checkout_session_id', session.id);
 
         console.log(`Square ${square_id} reservation expired`);
         break;
@@ -97,41 +95,27 @@ export async function POST(request: Request) {
       case 'account.updated': {
         // Handle Stripe Connect account updates
         const account = event.data.object as Stripe.Account;
-
-        // Find user with this Stripe account ID
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('stripe_account_id', account.id)
-          .single();
-
-        if (profile) {
-          console.log(`Stripe account ${account.id} updated for user ${profile.id}`);
-        }
+        console.log(`Stripe account ${account.id} updated`);
         break;
       }
 
       case 'invoice.paid': {
         // Handle subscription payments
-        // Extract subscription info from event data
         const eventData = event.data.object as unknown as Record<string, unknown>;
         const subscriptionId = eventData.subscription as string | undefined;
 
         if (subscriptionId) {
           try {
             const subResponse = await stripe.subscriptions.retrieve(subscriptionId);
-            // Access data from the response object
             const subData = subResponse as unknown as {
               status: string;
-              current_period_start: number;
               current_period_end: number;
             };
 
             await supabase
               .from('subscriptions')
               .update({
-                status: subData.status === 'active' ? 'active' : 'past_due',
-                current_period_start: new Date(subData.current_period_start * 1000).toISOString(),
+                is_active: subData.status === 'active',
                 current_period_end: new Date(subData.current_period_end * 1000).toISOString(),
               })
               .eq('stripe_subscription_id', subscriptionId);
@@ -145,23 +129,15 @@ export async function POST(request: Request) {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
 
-        // Update subscription and user tier
-        const { data: sub } = await supabase
+        // Update subscription to inactive
+        await supabase
           .from('subscriptions')
-          .update({ status: 'canceled' })
-          .eq('stripe_subscription_id', subscription.id)
-          .select('user_id')
-          .single();
+          .update({
+            is_active: false,
+            plan: 'payg',
+          })
+          .eq('stripe_subscription_id', subscription.id);
 
-        if (sub) {
-          await supabase
-            .from('profiles')
-            .update({
-              subscription_tier: 'free',
-              subscription_status: 'inactive',
-            })
-            .eq('id', sub.user_id);
-        }
         break;
       }
 

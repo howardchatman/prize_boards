@@ -38,7 +38,7 @@ export function PublicBoardView({ board, squares, currentUserId }: PublicBoardVi
       return;
     }
 
-    if (square.payment_status !== 'unpaid') {
+    if (square.status !== 'available') {
       toast.error('This square is already claimed');
       return;
     }
@@ -81,7 +81,7 @@ export function PublicBoardView({ board, squares, currentUserId }: PublicBoardVi
 
   // Count how many squares the current user owns
   const userSquareCount = squares.filter(
-    (s) => s.player_id === currentUserId && s.payment_status === 'paid'
+    (s) => s.claimed_by === currentUserId && s.status === 'claimed'
   ).length;
 
   return (
@@ -108,7 +108,7 @@ export function PublicBoardView({ board, squares, currentUserId }: PublicBoardVi
           <DialogHeader>
             <DialogTitle>Claim Square</DialogTitle>
             <DialogDescription>
-              You&apos;re about to claim a square on {board.name}
+              You&apos;re about to claim a square on {board.title}
             </DialogDescription>
           </DialogHeader>
 
@@ -123,7 +123,7 @@ export function PublicBoardView({ board, squares, currentUserId }: PublicBoardVi
                 </div>
                 <div>
                   <p className="text-gray-500">Price</p>
-                  <p className="font-medium">${(board.square_price / 100).toFixed(2)}</p>
+                  <p className="font-medium">${(board.square_price_cents / 100).toFixed(2)}</p>
                 </div>
               </div>
             </div>
@@ -147,7 +147,7 @@ export function PublicBoardView({ board, squares, currentUserId }: PublicBoardVi
               Cancel
             </Button>
             <Button onClick={handleClaimSquare} disabled={loading}>
-              {loading ? 'Processing...' : `Pay $${(board.square_price / 100).toFixed(2)}`}
+              {loading ? 'Processing...' : `Pay $${(board.square_price_cents / 100).toFixed(2)}`}
             </Button>
           </DialogFooter>
         </DialogContent>

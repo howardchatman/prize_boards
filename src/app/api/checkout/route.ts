@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { stripe, calculatePlatformFee } from '@/lib/stripe';
+import { stripe } from '@/lib/stripe';
 import Stripe from 'stripe';
+import { PLATFORM_FEES, type Plan } from '@/types/database';
 
 export async function POST(request: Request) {
   try {
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
     // Get board details
     const { data: board, error: boardError } = await supabase
       .from('boards')
-      .select('*, host:profiles!boards_host_id_fkey(stripe_account_id, subscription_tier)')
+      .select('*')
       .eq('id', boardId)
       .single();
 
@@ -44,26 +45,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Square not found' }, { status: 404 });
     }
 
-    if (square.payment_status !== 'unpaid') {
+    if (square.status !== 'available') {
       return NextResponse.json({ error: 'Square is already claimed' }, { status: 400 });
     }
 
-    // Get host's subscription tier for fee calculation
-    const host = board.host as { stripe_account_id: string | null; subscription_tier: string } | null;
-    const tier = (host?.subscription_tier || 'free') as 'free' | 'host_plus' | 'pro';
+    // Calculate platform fee based on board's snapshot fee
+    const platformFeePercent = board.platform_fee_percent / 100; // Convert to decimal
+    const platformFee = Math.round(board.square_price_cents * platformFeePercent);
 
-    // Calculate platform fee
-    const platformFee = calculatePlatformFee(board.square_price, tier);
-
-    // Mark square as pending before creating checkout session
+    // Mark square as reserved before creating checkout session
     const { error: updateError } = await supabase
       .from('squares')
       .update({
-        player_id: user.id,
-        payment_status: 'pending',
+        claimed_by: user.id,
+        status: 'reserved',
       })
       .eq('id', squareId)
-      .eq('payment_status', 'unpaid'); // Only update if still unpaid
+      .eq('status', 'available'); // Only update if still available
 
     if (updateError) {
       return NextResponse.json({ error: 'Failed to reserve square' }, { status: 500 });
@@ -79,10 +77,10 @@ export async function POST(request: Request) {
           price_data: {
             currency: 'usd',
             product_data: {
-              name: `Square (${squareRow}, ${squareCol}) - ${board.name}`,
-              description: `Sport board square for ${board.sport_event}`,
+              name: `Square (${squareRow}, ${squareCol}) - ${board.title}`,
+              description: `Sport board square for ${board.event_name}`,
             },
-            unit_amount: board.square_price,
+            unit_amount: board.square_price_cents,
           },
           quantity: 1,
         },
@@ -98,24 +96,19 @@ export async function POST(request: Request) {
       customer_email: user.email || undefined,
     };
 
-    // If host has a Stripe Connect account, use destination charge
-    // Otherwise, all funds go to platform (for MVP/testing)
-    if (host?.stripe_account_id) {
-      sessionParams.payment_intent_data = {
-        application_fee_amount: platformFee,
-        transfer_data: {
-          destination: host.stripe_account_id,
-        },
-      };
-    }
-
     const session = await stripe.checkout.sessions.create(sessionParams);
 
-    // Update square with payment intent ID
+    // Create entry record
     await supabase
-      .from('squares')
-      .update({ payment_intent_id: session.id })
-      .eq('id', squareId);
+      .from('entries')
+      .insert({
+        board_id: boardId,
+        square_id: squareId,
+        user_id: user.id,
+        amount_cents: board.square_price_cents,
+        stripe_checkout_session_id: session.id,
+        payment_status: 'processing',
+      });
 
     return NextResponse.json({ url: session.url });
   } catch (error) {

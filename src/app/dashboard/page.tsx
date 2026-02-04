@@ -20,17 +20,17 @@ export default async function DashboardPage() {
     .order('created_at', { ascending: false })
     .limit(5);
 
-  // Get boards where user has squares
+  // Get boards where user has claimed squares
   const { data: playerSquares } = await supabase
     .from('squares')
     .select('board_id, boards(*)')
-    .eq('player_id', user.id)
-    .eq('payment_status', 'paid')
+    .eq('claimed_by', user.id)
+    .eq('status', 'claimed')
     .limit(10);
 
   const joinedBoards = playerSquares
-    ?.map((s) => s.boards as unknown as { id: string; name: string; sport_event: string; status: string } | null)
-    .filter((b): b is { id: string; name: string; sport_event: string; status: string } => b !== null)
+    ?.map((s) => s.boards as unknown as { id: string; title: string; event_name: string; status: string } | null)
+    .filter((b): b is { id: string; title: string; event_name: string; status: string } => b !== null)
     .filter((b, i, arr) => arr.findIndex((x) => x.id === b.id) === i)
     .slice(0, 5);
 
@@ -64,8 +64,8 @@ export default async function DashboardPage() {
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="font-medium">{board.name}</h3>
-                        <p className="text-sm text-gray-500">{board.sport_event}</p>
+                        <h3 className="font-medium">{board.title}</h3>
+                        <p className="text-sm text-gray-500">{board.event_name}</p>
                       </div>
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         board.status === 'open' ? 'bg-green-100 text-green-700' :
@@ -77,7 +77,7 @@ export default async function DashboardPage() {
                       </span>
                     </div>
                     <p className="text-sm text-gray-500 mt-2">
-                      ${(board.square_price / 100).toFixed(2)} per square
+                      ${(board.square_price_cents / 100).toFixed(2)} per square
                     </p>
                   </Link>
                 ))}
@@ -116,8 +116,8 @@ export default async function DashboardPage() {
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="font-medium">{board.name}</h3>
-                        <p className="text-sm text-gray-500">{board.sport_event}</p>
+                        <h3 className="font-medium">{board.title}</h3>
+                        <p className="text-sm text-gray-500">{board.event_name}</p>
                       </div>
                       <span className={`text-xs px-2 py-1 rounded-full ${
                         board.status === 'open' ? 'bg-green-100 text-green-700' :

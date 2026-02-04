@@ -59,17 +59,18 @@ export function BoardActions({ board }: BoardActionsProps) {
     setLoading(true);
     const supabase = createClient();
 
-    // Generate random numbers for rows and columns
+    // Generate random digits for rows and columns
     const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    const rowNumbers = shuffleArray(digits);
-    const colNumbers = shuffleArray(digits);
+    const rowDigits = shuffleArray(digits);
+    const colDigits = shuffleArray(digits);
 
     const { error } = await supabase
       .from('boards')
       .update({
         status: 'locked',
-        row_numbers: rowNumbers,
-        col_numbers: colNumbers,
+        row_digits: rowDigits,
+        col_digits: colDigits,
+        locked_at: new Date().toISOString(),
       })
       .eq('id', board.id);
 
@@ -89,14 +90,14 @@ export function BoardActions({ board }: BoardActionsProps) {
     const supabase = createClient();
 
     // Check if any squares have been claimed
-    const { data: paidSquares } = await supabase
+    const { data: claimedSquares } = await supabase
       .from('squares')
       .select('id')
       .eq('board_id', board.id)
-      .eq('payment_status', 'paid')
+      .eq('status', 'claimed')
       .limit(1);
 
-    if (paidSquares && paidSquares.length > 0) {
+    if (claimedSquares && claimedSquares.length > 0) {
       toast.error('Cannot unpublish a board with claimed squares');
       setLoading(false);
       return;
@@ -149,10 +150,11 @@ export function BoardActions({ board }: BoardActionsProps) {
           <div className="py-4">
             <h4 className="font-medium mb-2">Board Summary:</h4>
             <ul className="text-sm text-gray-600 space-y-1">
-              <li>• Name: {board.name}</li>
-              <li>• Event: {board.sport_event}</li>
-              <li>• Square Price: ${(board.square_price / 100).toFixed(2)}</li>
+              <li>• Title: {board.title}</li>
+              <li>• Event: {board.event_name}</li>
+              <li>• Square Price: ${(board.square_price_cents / 100).toFixed(2)}</li>
               <li>• Payout Type: {board.payout_type}</li>
+              <li>• Invite Code: {board.invite_code}</li>
             </ul>
           </div>
           <DialogFooter>

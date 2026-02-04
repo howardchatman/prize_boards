@@ -1,12 +1,8 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/server';
-import {
-  calculatePayoutBreakdown,
-  calculatePrizeAmounts,
-  getWinningSquarePosition,
-} from '@/lib/stripe';
-import type { Board, Square, Score, PayoutRules, ScorePeriod } from '@/types/database';
+import { getWinningSquarePosition } from '@/lib/stripe';
+import type { Board, Square, PayoutRule } from '@/types/database';
 
 export async function POST(request: Request) {
   try {
@@ -25,10 +21,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing board ID' }, { status: 400 });
     }
 
-    // Get board with host profile
+    // Get board
     const { data: board, error: boardError } = await supabase
       .from('boards')
-      .select('*, host:profiles!boards_host_id_fkey(subscription_tier)')
+      .select('*')
       .eq('id', boardId)
       .single();
 
@@ -48,7 +44,7 @@ export async function POST(request: Request) {
 
     // Get all scores
     const { data: scores } = await supabase
-      .from('scores')
+      .from('board_scores')
       .select('*')
       .eq('board_id', boardId);
 
@@ -56,56 +52,65 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No scores entered' }, { status: 400 });
     }
 
-    // Get all paid squares with player info
+    // Get all claimed squares
     const { data: squares } = await supabase
       .from('squares')
       .select('*')
       .eq('board_id', boardId)
-      .eq('payment_status', 'paid');
+      .eq('status', 'claimed');
 
     if (!squares || squares.length === 0) {
-      return NextResponse.json({ error: 'No paid squares found' }, { status: 400 });
+      return NextResponse.json({ error: 'No claimed squares found' }, { status: 400 });
     }
 
-    // Calculate payout breakdown
-    const host = board.host as { subscription_tier: string } | null;
-    const tier = (host?.subscription_tier || 'free') as 'free' | 'host_plus' | 'pro';
+    // Calculate total pot
+    const totalPotCents = squares.length * board.square_price_cents;
 
-    const breakdown = calculatePayoutBreakdown(
-      board.total_pot,
-      tier,
-      board.host_commission_type as 'percentage' | 'flat' | null,
-      board.host_commission_value
-    );
+    // Calculate deductions
+    const platformFeeCents = Math.round(totalPotCents * (board.platform_fee_percent / 100));
+    let hostFeeCents = 0;
+    if (board.host_fee_percent) {
+      hostFeeCents = Math.round(totalPotCents * (board.host_fee_percent / 100));
+    } else if (board.host_fee_flat_cents) {
+      hostFeeCents = board.host_fee_flat_cents;
+    }
 
-    // Calculate prize amounts for each period
-    const payoutRules = board.payout_rules as PayoutRules;
-    const prizeAmounts = calculatePrizeAmounts(breakdown.prizePool, payoutRules);
+    const prizePoolCents = totalPotCents - platformFeeCents - hostFeeCents;
+
+    // Get payout rules
+    const payoutRules = board.payout_rules as PayoutRule[];
 
     // Create map of squares by position
     const squareMap: Record<string, Square> = {};
     squares.forEach((square) => {
       const key = `${square.row_index}-${square.col_index}`;
-      squareMap[key] = square;
+      squareMap[key] = square as Square;
     });
 
-    // Map row/col numbers to actual indices
-    const rowNumbers = board.row_numbers as number[];
-    const colNumbers = board.col_numbers as number[];
+    // Map row/col digits to actual indices
+    const rowDigits = board.row_digits as number[];
+    const colDigits = board.col_digits as number[];
 
-    // Create payouts for each score period
-    const payoutsToCreate: {
+    // Create payout events for each score
+    const payoutEventsToCreate: {
       board_id: string;
-      square_id: string;
-      player_id: string;
-      period: string;
-      amount: number;
+      event_key: string;
+      label: string;
+      percent: number;
+      row_digit: number;
+      col_digit: number;
+      winning_square_id: string | null;
+      winner_user_id: string | null;
+      prize_amount_cents: number;
       status: string;
     }[] = [];
 
     for (const score of scores) {
-      const prizeAmount = prizeAmounts[score.period];
-      if (!prizeAmount) continue;
+      // Find the matching payout rule
+      const rule = payoutRules.find(r => r.event === score.event_key);
+      if (!rule) continue;
+
+      const prizeAmountCents = Math.round(prizePoolCents * (rule.percent / 100));
 
       // Get winning digits (last digit of each score)
       const winningPosition = getWinningSquarePosition(
@@ -113,50 +118,58 @@ export async function POST(request: Request) {
         score.team_b_score
       );
 
-      // Find the row/col indices that have these numbers assigned
-      const rowIndex = rowNumbers.indexOf(winningPosition.row);
-      const colIndex = colNumbers.indexOf(winningPosition.col);
+      // Find the row/col indices that have these digits assigned
+      const rowIndex = rowDigits.indexOf(winningPosition.row);
+      const colIndex = colDigits.indexOf(winningPosition.col);
 
-      if (rowIndex === -1 || colIndex === -1) {
-        console.error(`Could not find position for ${winningPosition.row}-${winningPosition.col}`);
-        continue;
+      let winningSquareId: string | null = null;
+      let winnerUserId: string | null = null;
+
+      if (rowIndex !== -1 && colIndex !== -1) {
+        const key = `${rowIndex}-${colIndex}`;
+        const winningSquare = squareMap[key];
+
+        if (winningSquare && winningSquare.claimed_by) {
+          winningSquareId = winningSquare.id;
+          winnerUserId = winningSquare.claimed_by;
+        }
       }
 
-      // Find the winning square
-      const key = `${rowIndex}-${colIndex}`;
-      const winningSquare = squareMap[key];
-
-      if (!winningSquare || !winningSquare.player_id) {
-        console.log(`No player for winning square at ${key}`);
-        continue;
-      }
-
-      payoutsToCreate.push({
+      payoutEventsToCreate.push({
         board_id: boardId,
-        square_id: winningSquare.id,
-        player_id: winningSquare.player_id,
-        period: score.period,
-        amount: prizeAmount,
-        status: 'pending',
+        event_key: score.event_key,
+        label: score.event_key === 'Q1' ? 'Quarter 1' :
+               score.event_key === 'HALF' ? 'Halftime' :
+               score.event_key === 'Q3' ? 'Quarter 3' : 'Final',
+        percent: rule.percent,
+        row_digit: winningPosition.row,
+        col_digit: winningPosition.col,
+        winning_square_id: winningSquareId,
+        winner_user_id: winnerUserId,
+        prize_amount_cents: prizeAmountCents,
+        status: winnerUserId ? 'pending' : 'canceled',
       });
     }
 
-    // Insert all payouts
-    if (payoutsToCreate.length > 0) {
+    // Insert all payout events
+    if (payoutEventsToCreate.length > 0) {
       const { error: payoutError } = await adminSupabase
-        .from('payouts')
-        .insert(payoutsToCreate);
+        .from('payout_events')
+        .insert(payoutEventsToCreate);
 
       if (payoutError) {
-        console.error('Failed to create payouts:', payoutError);
-        return NextResponse.json({ error: 'Failed to create payouts' }, { status: 500 });
+        console.error('Failed to create payout events:', payoutError);
+        return NextResponse.json({ error: 'Failed to create payout events' }, { status: 500 });
       }
     }
 
     // Mark board as completed
     const { error: updateError } = await adminSupabase
       .from('boards')
-      .update({ status: 'completed' })
+      .update({
+        status: 'completed',
+        completed_at: new Date().toISOString(),
+      })
       .eq('id', boardId);
 
     if (updateError) {
@@ -165,12 +178,12 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      payoutsCreated: payoutsToCreate.length,
+      payoutEventsCreated: payoutEventsToCreate.length,
       breakdown: {
-        totalPot: breakdown.totalPot,
-        platformFee: breakdown.platformFee,
-        hostCommission: breakdown.hostCommission,
-        prizePool: breakdown.prizePool,
+        totalPot: totalPotCents,
+        platformFee: platformFeeCents,
+        hostFee: hostFeeCents,
+        prizePool: prizePoolCents,
       },
     });
   } catch (error) {

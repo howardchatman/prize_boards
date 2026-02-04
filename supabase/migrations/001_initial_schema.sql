@@ -1,275 +1,454 @@
--- Prize Boards Database Schema
--- Run this in your Supabase SQL editor
+-- PRIZE BOARDS (MVP) — SUPABASE SCHEMA
+-- Safe, clean naming. No gambling language.
 
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- Extensions
+create extension if not exists pgcrypto;
 
--- =============================================
--- PROFILES TABLE (extends auth.users)
--- =============================================
-CREATE TABLE public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  full_name TEXT,
-  stripe_customer_id TEXT,
-  stripe_account_id TEXT,
-  subscription_tier TEXT DEFAULT 'free' CHECK (subscription_tier IN ('free', 'host_plus', 'pro')),
-  subscription_status TEXT DEFAULT 'inactive' CHECK (subscription_status IN ('inactive', 'active', 'canceled', 'past_due')),
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+-- Enums
+do $$ begin
+  create type public.plan_t as enum ('payg', 'host_plus', 'pro_host');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.board_status_t as enum ('draft', 'open', 'locked', 'completed', 'canceled');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.payout_type_t as enum ('standard', 'quarter', 'custom');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.square_status_t as enum ('available', 'reserved', 'claimed');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.payment_status_t as enum ('requires_action', 'processing', 'succeeded', 'failed', 'refunded', 'canceled');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type public.payout_status_t as enum ('pending', 'scheduled', 'paid', 'failed', 'canceled');
+exception when duplicate_object then null; end $$;
+
+-- Utility function for updated_at
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end $$;
+
+-- Profiles (linked to auth.users)
+create table if not exists public.profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  full_name text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
 );
+
+drop trigger if exists trg_profiles_updated_at on public.profiles;
+create trigger trg_profiles_updated_at
+before update on public.profiles
+for each row execute function public.set_updated_at();
 
 -- Create profile automatically when user signs up
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, email, full_name)
-  VALUES (NEW.id, NEW.email, NEW.raw_user_meta_data->>'full_name');
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (user_id, full_name)
+  values (new.id, new.raw_user_meta_data->>'full_name');
+  return new;
+end;
+$$ language plpgsql security definer;
 
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
--- =============================================
--- BOARDS TABLE
--- =============================================
-CREATE TABLE public.boards (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  host_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  sport_event TEXT NOT NULL,
-  square_price INTEGER NOT NULL CHECK (square_price > 0),
-  status TEXT DEFAULT 'draft' CHECK (status IN ('draft', 'open', 'locked', 'completed')),
-  payout_type TEXT DEFAULT 'standard' CHECK (payout_type IN ('standard', 'quarters', 'custom')),
-  payout_rules JSONB NOT NULL DEFAULT '{"final": 100}',
-  host_commission_type TEXT CHECK (host_commission_type IN ('percentage', 'flat')),
-  host_commission_value INTEGER CHECK (
-    (host_commission_type = 'percentage' AND host_commission_value >= 0 AND host_commission_value <= 20) OR
-    (host_commission_type = 'flat' AND host_commission_value >= 0) OR
-    host_commission_type IS NULL
-  ),
-  row_numbers INTEGER[],
-  col_numbers INTEGER[],
-  lock_at TIMESTAMPTZ,
-  total_pot INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+-- Host subscriptions / plan
+create table if not exists public.subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  plan public.plan_t not null default 'payg',
+  -- Stripe subscription refs (optional for MVP)
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  current_period_end timestamptz,
+  is_active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique(user_id)
 );
 
-CREATE INDEX idx_boards_host_id ON public.boards(host_id);
-CREATE INDEX idx_boards_status ON public.boards(status);
+drop trigger if exists trg_subscriptions_updated_at on public.subscriptions;
+create trigger trg_subscriptions_updated_at
+before update on public.subscriptions
+for each row execute function public.set_updated_at();
 
--- =============================================
--- SQUARES TABLE (100 per board)
--- =============================================
-CREATE TABLE public.squares (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  board_id UUID NOT NULL REFERENCES public.boards(id) ON DELETE CASCADE,
-  row_index INTEGER NOT NULL CHECK (row_index >= 0 AND row_index <= 9),
-  col_index INTEGER NOT NULL CHECK (col_index >= 0 AND col_index <= 9),
-  player_id UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
-  payment_status TEXT DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid', 'pending', 'paid')),
-  payment_intent_id TEXT,
-  claimed_at TIMESTAMPTZ,
-  UNIQUE(board_id, row_index, col_index)
+-- Boards
+create table if not exists public.boards (
+  id uuid primary key default gen_random_uuid(),
+  host_id uuid not null references auth.users(id) on delete cascade,
+
+  title text not null,
+  event_name text not null,
+  sport text, -- optional (NFL, NBA, etc.)
+  square_price_cents integer not null check (square_price_cents > 0),
+
+  status public.board_status_t not null default 'draft',
+  payout_type public.payout_type_t not null default 'standard',
+
+  -- payout rules JSONB
+  -- Example quarter:
+  -- [{"event":"Q1","percent":20},{"event":"HALF","percent":20},{"event":"Q3","percent":20},{"event":"FINAL","percent":40}]
+  payout_rules jsonb not null default '[]'::jsonb,
+
+  -- Host earnings: choose ONE (either percent or flat)
+  host_fee_percent numeric(5,2),
+  host_fee_flat_cents integer,
+  host_fee_cap_percent numeric(5,2) not null default 20.00, -- enforce in app layer too
+
+  -- Platform fee snapshot at time of board creation (so future pricing changes don't break old boards)
+  platform_fee_percent numeric(5,2) not null default 7.50,
+
+  -- Invite / access
+  invite_code text not null unique, -- short code
+  is_public boolean not null default false,
+
+  -- Locking
+  lock_at timestamptz, -- optional scheduled lock
+  locked_at timestamptz,
+  completed_at timestamptz,
+
+  -- Digits assigned after lock
+  row_digits int[] ,  -- length 10, values 0-9
+  col_digits int[] ,  -- length 10, values 0-9
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  check (
+    (host_fee_percent is null and host_fee_flat_cents is not null)
+    or (host_fee_percent is not null and host_fee_flat_cents is null)
+    or (host_fee_percent is null and host_fee_flat_cents is null)
+  )
 );
 
-CREATE INDEX idx_squares_board_id ON public.squares(board_id);
-CREATE INDEX idx_squares_player_id ON public.squares(player_id);
+create index if not exists idx_boards_host on public.boards(host_id);
+create index if not exists idx_boards_status on public.boards(status);
+create index if not exists idx_boards_invite on public.boards(invite_code);
+
+drop trigger if exists trg_boards_updated_at on public.boards;
+create trigger trg_boards_updated_at
+before update on public.boards
+for each row execute function public.set_updated_at();
+
+-- Squares (10x10 = 100 per board)
+create table if not exists public.squares (
+  id uuid primary key default gen_random_uuid(),
+  board_id uuid not null references public.boards(id) on delete cascade,
+
+  row_index int not null check (row_index between 0 and 9),
+  col_index int not null check (col_index between 0 and 9),
+
+  status public.square_status_t not null default 'available',
+  claimed_by uuid references auth.users(id) on delete set null,
+  claimed_at timestamptz,
+
+  -- optional: snapshot of price in case board changes (usually fixed per board)
+  price_cents integer,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  unique(board_id, row_index, col_index)
+);
+
+create index if not exists idx_squares_board on public.squares(board_id);
+create index if not exists idx_squares_claimed_by on public.squares(claimed_by);
+
+drop trigger if exists trg_squares_updated_at on public.squares;
+create trigger trg_squares_updated_at
+before update on public.squares
+for each row execute function public.set_updated_at();
 
 -- Function to create 100 squares when a board is created
-CREATE OR REPLACE FUNCTION public.create_board_squares()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.squares (board_id, row_index, col_index)
-  SELECT NEW.id, r, c
-  FROM generate_series(0, 9) AS r
-  CROSS JOIN generate_series(0, 9) AS c;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+create or replace function public.create_board_squares()
+returns trigger as $$
+begin
+  insert into public.squares (board_id, row_index, col_index, price_cents)
+  select new.id, r, c, new.square_price_cents
+  from generate_series(0, 9) as r
+  cross join generate_series(0, 9) as c;
+  return new;
+end;
+$$ language plpgsql security definer;
 
-CREATE TRIGGER on_board_created
-  AFTER INSERT ON public.boards
-  FOR EACH ROW EXECUTE FUNCTION public.create_board_squares();
+drop trigger if exists on_board_created on public.boards;
+create trigger on_board_created
+  after insert on public.boards
+  for each row execute function public.create_board_squares();
 
--- =============================================
--- SCORES TABLE
--- =============================================
-CREATE TABLE public.scores (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  board_id UUID NOT NULL REFERENCES public.boards(id) ON DELETE CASCADE,
-  period TEXT NOT NULL CHECK (period IN ('q1', 'q2', 'q3', 'final')),
-  team_a_score INTEGER NOT NULL CHECK (team_a_score >= 0),
-  team_b_score INTEGER NOT NULL CHECK (team_b_score >= 0),
-  entered_at TIMESTAMPTZ DEFAULT NOW(),
-  entered_by UUID REFERENCES public.profiles(id),
-  UNIQUE(board_id, period)
+-- Entries: the act of a user joining/claiming a square (ties to payment)
+create table if not exists public.entries (
+  id uuid primary key default gen_random_uuid(),
+  board_id uuid not null references public.boards(id) on delete cascade,
+  square_id uuid not null references public.squares(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+
+  amount_cents integer not null check (amount_cents > 0),
+
+  -- Stripe checkout/payment intent refs
+  stripe_payment_intent_id text,
+  stripe_checkout_session_id text,
+
+  payment_status public.payment_status_t not null default 'processing',
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  unique(square_id),
+  unique(board_id, square_id, user_id)
 );
 
-CREATE INDEX idx_scores_board_id ON public.scores(board_id);
+create index if not exists idx_entries_board on public.entries(board_id);
+create index if not exists idx_entries_user on public.entries(user_id);
+create index if not exists idx_entries_pi on public.entries(stripe_payment_intent_id);
 
--- =============================================
--- PAYOUTS TABLE
--- =============================================
-CREATE TABLE public.payouts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  board_id UUID NOT NULL REFERENCES public.boards(id) ON DELETE CASCADE,
-  square_id UUID NOT NULL REFERENCES public.squares(id) ON DELETE CASCADE,
-  player_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  period TEXT NOT NULL CHECK (period IN ('q1', 'q2', 'q3', 'final')),
-  amount INTEGER NOT NULL CHECK (amount > 0),
-  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'paid', 'failed')),
-  stripe_transfer_id TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  paid_at TIMESTAMPTZ
+drop trigger if exists trg_entries_updated_at on public.entries;
+create trigger trg_entries_updated_at
+before update on public.entries
+for each row execute function public.set_updated_at();
+
+-- Payout events: what gets paid (Q1, HALF, Q3, FINAL, custom events)
+create table if not exists public.payout_events (
+  id uuid primary key default gen_random_uuid(),
+  board_id uuid not null references public.boards(id) on delete cascade,
+
+  event_key text not null,   -- e.g. Q1, HALF, Q3, FINAL, CUSTOM_1
+  label text not null,       -- display label
+  percent numeric(5,2) not null check (percent > 0 and percent <= 100),
+
+  -- score digits that won (set when host enters scores)
+  row_digit int check (row_digit between 0 and 9),
+  col_digit int check (col_digit between 0 and 9),
+
+  winning_square_id uuid references public.squares(id) on delete set null,
+  winner_user_id uuid references auth.users(id) on delete set null,
+
+  prize_amount_cents integer, -- computed when board is locked/entries final
+  status public.payout_status_t not null default 'pending',
+
+  -- Stripe payout/transfer refs (depends on your Stripe Connect approach)
+  stripe_transfer_id text,
+  stripe_payout_id text,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  unique(board_id, event_key)
 );
 
-CREATE INDEX idx_payouts_board_id ON public.payouts(board_id);
-CREATE INDEX idx_payouts_player_id ON public.payouts(player_id);
-CREATE INDEX idx_payouts_status ON public.payouts(status);
+create index if not exists idx_payout_events_board on public.payout_events(board_id);
 
--- =============================================
--- SUBSCRIPTIONS TABLE
--- =============================================
-CREATE TABLE public.subscriptions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  stripe_subscription_id TEXT NOT NULL UNIQUE,
-  tier TEXT NOT NULL CHECK (tier IN ('host_plus', 'pro')),
-  status TEXT NOT NULL CHECK (status IN ('active', 'canceled', 'past_due')),
-  current_period_start TIMESTAMPTZ,
-  current_period_end TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+drop trigger if exists trg_payout_events_updated_at on public.payout_events;
+create trigger trg_payout_events_updated_at
+before update on public.payout_events
+for each row execute function public.set_updated_at();
+
+-- Board scores: stores host-entered scores (MVP manual entry)
+create table if not exists public.board_scores (
+  id uuid primary key default gen_random_uuid(),
+  board_id uuid not null references public.boards(id) on delete cascade,
+
+  event_key text not null, -- Q1, HALF, Q3, FINAL
+  team_a_score int not null default 0,
+  team_b_score int not null default 0,
+
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+
+  unique(board_id, event_key)
 );
 
-CREATE INDEX idx_subscriptions_user_id ON public.subscriptions(user_id);
+drop trigger if exists trg_board_scores_updated_at on public.board_scores;
+create trigger trg_board_scores_updated_at
+before update on public.board_scores
+for each row execute function public.set_updated_at();
 
--- =============================================
--- ROW LEVEL SECURITY POLICIES
--- =============================================
+-- -------------------------
+-- RLS (Row Level Security)
+-- -------------------------
+alter table public.profiles enable row level security;
+alter table public.subscriptions enable row level security;
+alter table public.boards enable row level security;
+alter table public.squares enable row level security;
+alter table public.entries enable row level security;
+alter table public.payout_events enable row level security;
+alter table public.board_scores enable row level security;
 
--- Enable RLS on all tables
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.boards ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.squares ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.scores ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.payouts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+-- Profiles: user can read/write their own profile
+drop policy if exists "profiles_select_own" on public.profiles;
+create policy "profiles_select_own"
+on public.profiles for select
+using (auth.uid() = user_id);
 
--- PROFILES POLICIES
-CREATE POLICY "Users can view their own profile"
-  ON public.profiles FOR SELECT
-  USING (auth.uid() = id);
+drop policy if exists "profiles_upsert_own" on public.profiles;
+create policy "profiles_upsert_own"
+on public.profiles for insert
+with check (auth.uid() = user_id);
 
-CREATE POLICY "Users can update their own profile"
-  ON public.profiles FOR UPDATE
-  USING (auth.uid() = id);
+drop policy if exists "profiles_update_own" on public.profiles;
+create policy "profiles_update_own"
+on public.profiles for update
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id);
 
-CREATE POLICY "Anyone can view profiles for board participants"
-  ON public.profiles FOR SELECT
-  USING (true);
+-- Allow reading other profiles for display purposes (e.g., host name)
+drop policy if exists "profiles_select_all" on public.profiles;
+create policy "profiles_select_all"
+on public.profiles for select
+using (true);
 
--- BOARDS POLICIES
-CREATE POLICY "Anyone can view open/locked/completed boards"
-  ON public.boards FOR SELECT
-  USING (status IN ('open', 'locked', 'completed') OR host_id = auth.uid());
+-- Subscriptions: user can read own
+drop policy if exists "subs_select_own" on public.subscriptions;
+create policy "subs_select_own"
+on public.subscriptions for select
+using (auth.uid() = user_id);
 
-CREATE POLICY "Authenticated users can create boards"
-  ON public.boards FOR INSERT
-  WITH CHECK (auth.uid() = host_id);
+-- Boards:
+-- Public can read if is_public OR they know invite_code (handled in app by querying with code).
+-- For SQL-only simplicity: allow read of public boards; invite-code access should be via server-side route.
+drop policy if exists "boards_select_public" on public.boards;
+create policy "boards_select_public"
+on public.boards for select
+using (is_public = true or status in ('open', 'locked', 'completed'));
 
-CREATE POLICY "Hosts can update their own boards"
-  ON public.boards FOR UPDATE
-  USING (auth.uid() = host_id);
+-- Host can manage their boards
+drop policy if exists "boards_host_all" on public.boards;
+create policy "boards_host_all"
+on public.boards for all
+using (auth.uid() = host_id)
+with check (auth.uid() = host_id);
 
-CREATE POLICY "Hosts can delete their draft boards"
-  ON public.boards FOR DELETE
-  USING (auth.uid() = host_id AND status = 'draft');
-
--- SQUARES POLICIES
-CREATE POLICY "Anyone can view squares of visible boards"
-  ON public.squares FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.boards
-      WHERE boards.id = squares.board_id
-      AND (boards.status IN ('open', 'locked', 'completed') OR boards.host_id = auth.uid())
-    )
-  );
-
-CREATE POLICY "Players can claim unclaimed squares"
-  ON public.squares FOR UPDATE
-  USING (
-    player_id IS NULL OR player_id = auth.uid()
+-- Squares:
+-- Anyone can read squares for visible boards
+drop policy if exists "squares_select_visible" on public.squares;
+create policy "squares_select_visible"
+on public.squares for select
+using (
+  exists (
+    select 1 from public.boards b
+    where b.id = squares.board_id
+      and (b.is_public = true or b.status in ('open', 'locked', 'completed') or b.host_id = auth.uid())
   )
-  WITH CHECK (
-    player_id = auth.uid()
-  );
+);
 
--- SCORES POLICIES
-CREATE POLICY "Anyone can view scores"
-  ON public.scores FOR SELECT
-  USING (true);
+-- Users can claim available squares
+drop policy if exists "squares_claim" on public.squares;
+create policy "squares_claim"
+on public.squares for update
+using (
+  status = 'available' or claimed_by = auth.uid()
+)
+with check (
+  claimed_by = auth.uid()
+);
 
-CREATE POLICY "Hosts can insert scores for their boards"
-  ON public.scores FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.boards
-      WHERE boards.id = scores.board_id
-      AND boards.host_id = auth.uid()
-    )
-  );
+-- Host can manage squares on their boards
+drop policy if exists "squares_host_manage" on public.squares;
+create policy "squares_host_manage"
+on public.squares for update
+using (
+  exists (
+    select 1 from public.boards b
+    where b.id = squares.board_id and b.host_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1 from public.boards b
+    where b.id = squares.board_id and b.host_id = auth.uid()
+  )
+);
 
-CREATE POLICY "Hosts can update scores for their boards"
-  ON public.scores FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.boards
-      WHERE boards.id = scores.board_id
-      AND boards.host_id = auth.uid()
-    )
-  );
+-- Entries: user can read their own entries
+drop policy if exists "entries_select_own" on public.entries;
+create policy "entries_select_own"
+on public.entries for select
+using (auth.uid() = user_id);
 
--- PAYOUTS POLICIES
-CREATE POLICY "Users can view their own payouts"
-  ON public.payouts FOR SELECT
-  USING (player_id = auth.uid());
+-- Users can create entries
+drop policy if exists "entries_insert" on public.entries;
+create policy "entries_insert"
+on public.entries for insert
+with check (auth.uid() = user_id);
 
-CREATE POLICY "Hosts can view payouts for their boards"
-  ON public.payouts FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.boards
-      WHERE boards.id = payouts.board_id
-      AND boards.host_id = auth.uid()
-    )
-  );
+-- Host can read entries for their boards
+drop policy if exists "entries_host_select" on public.entries;
+create policy "entries_host_select"
+on public.entries for select
+using (
+  exists (
+    select 1 from public.boards b
+    where b.id = entries.board_id and b.host_id = auth.uid()
+  )
+);
 
--- SUBSCRIPTIONS POLICIES
-CREATE POLICY "Users can view their own subscriptions"
-  ON public.subscriptions FOR SELECT
-  USING (user_id = auth.uid());
+-- Payout events: anyone can read for their boards
+drop policy if exists "payout_events_select" on public.payout_events;
+create policy "payout_events_select"
+on public.payout_events for select
+using (
+  exists (
+    select 1 from public.boards b
+    where b.id = payout_events.board_id
+      and (b.host_id = auth.uid() or b.status in ('locked', 'completed'))
+  )
+);
 
--- =============================================
--- UPDATED_AT TRIGGER
--- =============================================
-CREATE OR REPLACE FUNCTION public.update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+-- Host can manage payout events
+drop policy if exists "payout_events_host_all" on public.payout_events;
+create policy "payout_events_host_all"
+on public.payout_events for all
+using (
+  exists (
+    select 1 from public.boards b
+    where b.id = payout_events.board_id and b.host_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1 from public.boards b
+    where b.id = payout_events.board_id and b.host_id = auth.uid()
+  )
+);
 
-CREATE TRIGGER update_profiles_updated_at
-  BEFORE UPDATE ON public.profiles
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+-- Scores: anyone can read scores for visible boards
+drop policy if exists "board_scores_select" on public.board_scores;
+create policy "board_scores_select"
+on public.board_scores for select
+using (
+  exists (
+    select 1 from public.boards b
+    where b.id = board_scores.board_id
+      and (b.host_id = auth.uid() or b.status in ('locked', 'completed'))
+  )
+);
 
-CREATE TRIGGER update_boards_updated_at
-  BEFORE UPDATE ON public.boards
-  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+-- Host can manage scores
+drop policy if exists "board_scores_host_all" on public.board_scores;
+create policy "board_scores_host_all"
+on public.board_scores for all
+using (
+  exists (
+    select 1 from public.boards b
+    where b.id = board_scores.board_id and b.host_id = auth.uid()
+  )
+)
+with check (
+  exists (
+    select 1 from public.boards b
+    where b.id = board_scores.board_id and b.host_id = auth.uid()
+  )
+);

@@ -6,6 +6,7 @@ import { BoardActions } from '@/components/board/board-actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import type { PayoutRule } from '@/types/database';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -43,13 +44,13 @@ export default async function BoardDetailPage({ params }: Props) {
     .eq('board_id', id);
 
   const { data: scores } = await supabase
-    .from('scores')
+    .from('board_scores')
     .select('*')
     .eq('board_id', id)
-    .order('period');
+    .order('event_key');
 
-  const paidSquares = squares?.filter((s) => s.payment_status === 'paid').length || 0;
-  const totalPot = paidSquares * board.square_price;
+  const claimedSquares = squares?.filter((s) => s.status === 'claimed').length || 0;
+  const totalPot = claimedSquares * board.square_price_cents;
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -61,10 +62,14 @@ export default async function BoardDetailPage({ params }: Props) {
         return 'bg-yellow-100 text-yellow-700';
       case 'completed':
         return 'bg-blue-100 text-blue-700';
+      case 'canceled':
+        return 'bg-red-100 text-red-700';
       default:
         return 'bg-gray-100 text-gray-700';
     }
   };
+
+  const payoutRules = board.payout_rules as PayoutRule[];
 
   return (
     <div className="space-y-6">
@@ -72,10 +77,15 @@ export default async function BoardDetailPage({ params }: Props) {
       <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-3xl font-bold">{board.name}</h1>
+            <h1 className="text-3xl font-bold">{board.title}</h1>
             <Badge className={getStatusColor(board.status)}>{board.status}</Badge>
           </div>
-          <p className="text-gray-600">{board.sport_event}</p>
+          <p className="text-gray-600">{board.event_name}</p>
+          {board.invite_code && (
+            <p className="text-sm text-gray-500 mt-1">
+              Invite code: <code className="bg-gray-100 px-2 py-0.5 rounded">{board.invite_code}</code>
+            </p>
+          )}
         </div>
 
         {isHost && (
@@ -90,13 +100,13 @@ export default async function BoardDetailPage({ params }: Props) {
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-gray-500">Square Price</p>
-            <p className="text-2xl font-bold">${(board.square_price / 100).toFixed(2)}</p>
+            <p className="text-2xl font-bold">${(board.square_price_cents / 100).toFixed(2)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-gray-500">Squares Claimed</p>
-            <p className="text-2xl font-bold">{paidSquares} / 100</p>
+            <p className="text-2xl font-bold">{claimedSquares} / 100</p>
           </CardContent>
         </Card>
         <Card>
@@ -144,22 +154,27 @@ export default async function BoardDetailPage({ params }: Props) {
         </CardHeader>
         <CardContent>
           <div className="space-y-2">
-            {Object.entries(board.payout_rules as Record<string, number>).map(([period, percentage]) => (
-              <div key={period} className="flex justify-between items-center py-2 border-b last:border-0">
-                <span className="capitalize">{period === 'q1' ? 'Quarter 1' : period === 'q2' ? 'Halftime' : period === 'q3' ? 'Quarter 3' : 'Final'}</span>
-                <span className="font-medium">{percentage}%</span>
+            {payoutRules.map((rule) => (
+              <div key={rule.event} className="flex justify-between items-center py-2 border-b last:border-0">
+                <span>{rule.event === 'Q1' ? 'Quarter 1' : rule.event === 'HALF' ? 'Halftime' : rule.event === 'Q3' ? 'Quarter 3' : 'Final'}</span>
+                <span className="font-medium">{rule.percent}%</span>
               </div>
             ))}
           </div>
-          {board.host_commission_type && (
+          {(board.host_fee_percent || board.host_fee_flat_cents) && (
             <div className="mt-4 pt-4 border-t">
               <p className="text-sm text-gray-500">
-                Host Commission: {board.host_commission_type === 'percentage'
-                  ? `${board.host_commission_value}%`
-                  : `$${((board.host_commission_value || 0) / 100).toFixed(2)}`}
+                Host Fee: {board.host_fee_percent
+                  ? `${board.host_fee_percent}%`
+                  : `$${((board.host_fee_flat_cents || 0) / 100).toFixed(2)}`}
               </p>
             </div>
           )}
+          <div className="mt-2">
+            <p className="text-sm text-gray-500">
+              Platform Fee: {board.platform_fee_percent}%
+            </p>
+          </div>
         </CardContent>
       </Card>
 
@@ -177,7 +192,7 @@ export default async function BoardDetailPage({ params }: Props) {
               <div className="space-y-2">
                 {scores.map((score) => (
                   <div key={score.id} className="flex justify-between items-center py-2 border-b last:border-0">
-                    <span className="capitalize">{score.period}</span>
+                    <span>{score.event_key}</span>
                     <span className="font-mono">
                       {score.team_a_score} - {score.team_b_score}
                     </span>
@@ -202,20 +217,37 @@ export default async function BoardDetailPage({ params }: Props) {
           <CardHeader>
             <CardTitle>Share This Board</CardTitle>
             <CardDescription>
-              Send this link to players so they can join
+              Send this link or invite code to players so they can join
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex gap-2">
-              <code className="flex-1 bg-gray-100 p-3 rounded text-sm overflow-x-auto">
-                {typeof window !== 'undefined' ? `${window.location.origin}/board/${id}` : `/board/${id}`}
-              </code>
-              <Button
-                variant="outline"
-                onClick={() => navigator.clipboard.writeText(`${window.location.origin}/board/${id}`)}
-              >
-                Copy
-              </Button>
+          <CardContent className="space-y-4">
+            <div>
+              <p className="text-sm text-gray-500 mb-2">Share Link:</p>
+              <div className="flex gap-2">
+                <code className="flex-1 bg-gray-100 p-3 rounded text-sm overflow-x-auto">
+                  {typeof window !== 'undefined' ? `${window.location.origin}/board/${id}` : `/board/${id}`}
+                </code>
+                <Button
+                  variant="outline"
+                  onClick={() => navigator.clipboard.writeText(`${window.location.origin}/board/${id}`)}
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 mb-2">Invite Code:</p>
+              <div className="flex gap-2">
+                <code className="flex-1 bg-gray-100 p-3 rounded text-sm font-mono text-lg">
+                  {board.invite_code}
+                </code>
+                <Button
+                  variant="outline"
+                  onClick={() => navigator.clipboard.writeText(board.invite_code)}
+                >
+                  Copy
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

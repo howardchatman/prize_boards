@@ -30,17 +30,17 @@ export function BoardGrid({
     grid[square.row_index][square.col_index] = square;
   });
 
-  // Get column and row numbers (or placeholders if not assigned yet)
-  const colNumbers = board.col_numbers || Array(10).fill('?');
-  const rowNumbers = board.row_numbers || Array(10).fill('?');
+  // Get column and row digits (or placeholders if not assigned yet)
+  const colDigits = board.col_digits || Array(10).fill('?');
+  const rowDigits = board.row_digits || Array(10).fill('?');
 
   const getSquareStatus = (square: Square | null) => {
     if (!square) return 'unavailable';
-    if (square.payment_status === 'paid') {
-      if (square.player_id === currentUserId) return 'owned';
+    if (square.status === 'claimed') {
+      if (square.claimed_by === currentUserId) return 'owned';
       return 'claimed';
     }
-    if (square.payment_status === 'pending') return 'pending';
+    if (square.status === 'reserved') return 'pending';
     return 'available';
   };
 
@@ -63,19 +63,19 @@ export function BoardGrid({
 
   const handleSquareClick = (square: Square | null) => {
     if (!square || !isInteractive || !onSquareClick) return;
-    if (square.payment_status !== 'unpaid') return;
+    if (square.status !== 'available') return;
     onSquareClick(square);
   };
 
   return (
     <div className="w-full overflow-x-auto">
       <div className="min-w-[500px]">
-        {/* Header row with column numbers */}
+        {/* Header row with column digits */}
         <div className="grid grid-cols-11 gap-0.5 mb-0.5">
           <div className="aspect-square bg-gray-800 text-white flex items-center justify-center text-xs font-bold rounded-tl">
             {/* Corner cell */}
           </div>
-          {colNumbers.map((num, i) => (
+          {colDigits.map((num, i) => (
             <div
               key={`col-${i}`}
               className="aspect-square bg-gray-800 text-white flex items-center justify-center text-sm font-bold"
@@ -88,9 +88,9 @@ export function BoardGrid({
         {/* Grid rows */}
         {grid.map((row, rowIdx) => (
           <div key={`row-${rowIdx}`} className="grid grid-cols-11 gap-0.5 mb-0.5">
-            {/* Row number */}
+            {/* Row digit */}
             <div className="aspect-square bg-gray-800 text-white flex items-center justify-center text-sm font-bold">
-              {rowNumbers[rowIdx]}
+              {rowDigits[rowIdx]}
             </div>
             {/* Squares */}
             {row.map((square, colIdx) => {
@@ -133,7 +133,7 @@ export function BoardGrid({
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 bg-yellow-50 border"></div>
-            <span>Payment Pending</span>
+            <span>Reserved</span>
           </div>
         </div>
       </div>

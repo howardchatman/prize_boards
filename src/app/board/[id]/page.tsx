@@ -5,6 +5,7 @@ import { Footer } from '@/components/layout/footer';
 import { PublicBoardView } from '@/components/board/public-board-view';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import type { PayoutRule } from '@/types/database';
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -30,7 +31,8 @@ export default async function PublicBoardPage({ params }: Props) {
     .select('*')
     .eq('board_id', id);
 
-  const paidSquares = squares?.filter((s) => s.payment_status === 'paid').length || 0;
+  const claimedSquares = squares?.filter((s) => s.status === 'claimed').length || 0;
+  const payoutRules = board.payout_rules as PayoutRule[];
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -55,10 +57,10 @@ export default async function PublicBoardPage({ params }: Props) {
           <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
             <div>
               <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-3xl font-bold">{board.name}</h1>
+                <h1 className="text-3xl font-bold">{board.title}</h1>
                 <Badge className={getStatusColor(board.status)}>{board.status}</Badge>
               </div>
-              <p className="text-gray-600">{board.sport_event}</p>
+              <p className="text-gray-600">{board.event_name}</p>
               <p className="text-sm text-gray-500 mt-1">
                 Hosted by {(board.host as { full_name: string | null })?.full_name || 'Anonymous'}
               </p>
@@ -70,19 +72,19 @@ export default async function PublicBoardPage({ params }: Props) {
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-gray-500">Square Price</p>
-                <p className="text-2xl font-bold">${(board.square_price / 100).toFixed(2)}</p>
+                <p className="text-2xl font-bold">${(board.square_price_cents / 100).toFixed(2)}</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-gray-500">Squares Available</p>
-                <p className="text-2xl font-bold">{100 - paidSquares} / 100</p>
+                <p className="text-2xl font-bold">{100 - claimedSquares} / 100</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
                 <p className="text-sm text-gray-500">Current Pot</p>
-                <p className="text-2xl font-bold">${((paidSquares * board.square_price) / 100).toFixed(2)}</p>
+                <p className="text-2xl font-bold">${((claimedSquares * board.square_price_cents) / 100).toFixed(2)}</p>
               </CardContent>
             </Card>
             <Card>
@@ -121,12 +123,12 @@ export default async function PublicBoardPage({ params }: Props) {
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
-                {Object.entries(board.payout_rules as Record<string, number>).map(([period, percentage]) => (
-                  <div key={period} className="flex justify-between items-center py-2 border-b last:border-0">
-                    <span className="capitalize">
-                      {period === 'q1' ? 'Quarter 1' : period === 'q2' ? 'Halftime' : period === 'q3' ? 'Quarter 3' : 'Final'}
+                {payoutRules.map((rule) => (
+                  <div key={rule.event} className="flex justify-between items-center py-2 border-b last:border-0">
+                    <span>
+                      {rule.event === 'Q1' ? 'Quarter 1' : rule.event === 'HALF' ? 'Halftime' : rule.event === 'Q3' ? 'Quarter 3' : 'Final'}
                     </span>
-                    <span className="font-medium">{percentage}%</span>
+                    <span className="font-medium">{rule.percent}%</span>
                   </div>
                 ))}
               </div>
