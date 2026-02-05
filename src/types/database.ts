@@ -17,6 +17,11 @@ export interface PayoutRule {
 export interface Profile {
   user_id: string;
   full_name: string | null;
+  avatar_url: string | null;
+  phone: string | null;
+  bio: string | null;
+  email_notifications: boolean;
+  onboarding_completed: boolean;
   created_at: string;
   updated_at: string;
 }
