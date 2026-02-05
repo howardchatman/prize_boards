@@ -126,6 +126,35 @@ export async function POST(request: Request) {
         break;
       }
 
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as Stripe.Subscription;
+        const customerId = subscription.customer as string;
+
+        // Get the plan from the price ID
+        const priceId = subscription.items.data[0]?.price.id;
+        let plan = 'payg';
+        if (priceId === process.env.STRIPE_PRICE_HOST_PLUS) {
+          plan = 'host_plus';
+        } else if (priceId === process.env.STRIPE_PRICE_PRO_HOST) {
+          plan = 'pro_host';
+        }
+
+        // Update subscription record
+        await supabase
+          .from('subscriptions')
+          .update({
+            stripe_subscription_id: subscription.id,
+            plan,
+            is_active: subscription.status === 'active',
+            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+          })
+          .eq('stripe_customer_id', customerId);
+
+        console.log(`Subscription ${subscription.id} updated to plan: ${plan}`);
+        break;
+      }
+
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as Stripe.Subscription;
 
