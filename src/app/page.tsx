@@ -15,50 +15,61 @@ export default function HomePage() {
       <Header />
 
       <main className="flex-1">
-        {/* Hero Section */}
-        <section className="py-20 bg-gradient-to-b from-gray-50 to-white">
-          <div className="container mx-auto px-4 text-center">
-            <Badge variant="secondary" className="mb-4">
-              The easiest way to run sport boards
-            </Badge>
-            <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6">
-              Sport boards. Real prizes.
-              <br />
-              <span className="text-primary">Automated payouts.</span>
-            </h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto mb-8">
-              Hosts set the rules. Fees are shown upfront. Payouts are automatic.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-              <Button size="lg" asChild>
-                <Link href="/signup">Create a Prize Board</Link>
-              </Button>
-              <Button size="lg" variant="outline" asChild>
-                <Link href="#how-it-works">See How It Works</Link>
-              </Button>
-            </div>
-            <div className="flex flex-col sm:flex-row gap-6 justify-center text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                Collect entries online
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                Numbers randomized automatically
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-green-500">✓</span>
-                Prizes paid out instantly
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* Hero Section with Background Image */}
+        <section
+          className="relative min-h-[90vh] flex items-center justify-center bg-cover bg-center bg-no-repeat"
+          style={{
+            backgroundImage: `url('https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?auto=format&fit=crop&w=2000&q=80')`,
+          }}
+        >
+          {/* Dark overlay for text readability */}
+          <div className="absolute inset-0 bg-black/60" />
 
-        {/* Interactive Mini Game */}
-        <section className="py-16">
-          <div className="container mx-auto px-4">
-            <div className="max-w-md mx-auto">
-              <HeroMiniGame />
+          <div className="relative z-10 container mx-auto px-4 py-20">
+            <div className="grid lg:grid-cols-2 gap-12 items-center">
+              {/* Left side - Text content */}
+              <div className="text-center lg:text-left">
+                <Badge variant="secondary" className="mb-4 bg-white/90">
+                  The easiest way to run sport boards
+                </Badge>
+                <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight mb-6 text-white">
+                  Sport boards. Real prizes.
+                  <br />
+                  <span className="text-green-400">Automated payouts.</span>
+                </h1>
+                <p className="text-xl text-gray-200 max-w-xl mb-8">
+                  Hosts set the rules. Fees are shown upfront. Payouts are automatic.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mb-8">
+                  <Button size="lg" className="bg-green-500 hover:bg-green-600 text-white" asChild>
+                    <Link href="/signup">Create a Prize Board</Link>
+                  </Button>
+                  <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10" asChild>
+                    <Link href="#how-it-works">See How It Works</Link>
+                  </Button>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start text-sm text-gray-200">
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-400">✓</span>
+                    Collect entries online
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-400">✓</span>
+                    Numbers randomized automatically
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-green-400">✓</span>
+                    Prizes paid out instantly
+                  </div>
+                </div>
+              </div>
+
+              {/* Right side - Mini Game */}
+              <div className="flex justify-center lg:justify-end">
+                <div className="w-full max-w-md">
+                  <HeroMiniGame />
+                </div>
+              </div>
             </div>
           </div>
         </section>
