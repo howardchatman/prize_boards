@@ -140,6 +140,12 @@ export async function POST(request: Request) {
           plan = 'pro_host';
         }
 
+        // Get current_period_end from subscription (cast to access the property)
+        const subData = subscription as unknown as { current_period_end?: number };
+        const periodEnd = subData.current_period_end
+          ? new Date(subData.current_period_end * 1000).toISOString()
+          : null;
+
         // Update subscription record
         await supabase
           .from('subscriptions')
@@ -147,7 +153,7 @@ export async function POST(request: Request) {
             stripe_subscription_id: subscription.id,
             plan,
             is_active: subscription.status === 'active',
-            current_period_end: new Date(subscription.current_period_end * 1000).toISOString(),
+            ...(periodEnd && { current_period_end: periodEnd }),
           })
           .eq('stripe_customer_id', customerId);
 
