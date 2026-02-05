@@ -152,7 +152,7 @@ export default function ProfilePage() {
     setUploading(false);
   };
 
-  const getInitials = (name: string | null) => {
+  const getInitials = (name: string | null | undefined) => {
     if (!name) return 'U';
     return name
       .split(' ')
