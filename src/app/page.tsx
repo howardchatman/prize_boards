@@ -3,6 +3,7 @@ import { Header } from '@/components/layout/header';
 import { Footer } from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { HeroMiniGame } from '@/components/hero/hero-mini-game';
 
 // Force dynamic rendering since Header uses auth state
 export const dynamic = 'force-dynamic';
@@ -53,46 +54,11 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Demo Board Preview */}
+        {/* Interactive Mini Game */}
         <section className="py-16">
           <div className="container mx-auto px-4">
-            <div className="max-w-4xl mx-auto">
-              <div className="bg-white rounded-xl shadow-2xl p-6 border">
-                <div className="flex justify-between items-center mb-4">
-                  <div>
-                    <h3 className="font-bold text-lg">Super Bowl LVIII Board</h3>
-                    <p className="text-sm text-gray-500">$10 per square • 67/100 claimed</p>
-                    <p className="text-xs text-gray-400 mt-1">Payouts: Q1 • Half • Q3 • Final</p>
-                  </div>
-                  <Badge>Open</Badge>
-                </div>
-                {/* Mini board preview - static for demo */}
-                <div className="grid grid-cols-11 gap-0.5 text-xs">
-                  <div className="bg-gray-100 p-2 text-center font-bold"></div>
-                  {[3, 7, 1, 9, 4, 0, 8, 2, 6, 5].map((n, i) => (
-                    <div key={`col-${i}`} className="bg-gray-100 p-2 text-center font-bold">{n}</div>
-                  ))}
-                  {[2, 8, 0, 5, 1, 9, 6, 3, 7, 4].map((rowNum, rowIdx) => (
-                    <div key={`row-group-${rowIdx}`} className="contents">
-                      <div className="bg-gray-100 p-2 text-center font-bold">{rowNum}</div>
-                      {Array(10).fill(0).map((_, colIdx) => {
-                        // Deterministic pattern for demo
-                        const isClaimed = (rowIdx + colIdx) % 3 !== 0;
-                        return (
-                          <div
-                            key={`cell-${rowIdx}-${colIdx}`}
-                            className={`p-2 text-center border ${
-                              isClaimed ? 'bg-primary/10 text-primary' : 'bg-white hover:bg-gray-50'
-                            }`}
-                          >
-                            {isClaimed ? '✓' : ''}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
+            <div className="max-w-md mx-auto">
+              <HeroMiniGame />
             </div>
           </div>
         </section>
