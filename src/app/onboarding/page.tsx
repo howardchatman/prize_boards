@@ -185,10 +185,10 @@ function OnboardingContent() {
             <CardHeader>
               <div className="flex justify-center mb-4">
                 <Image
-                  src="/prize_boards_logo/icon.png"
+                  src="/prize_boards_logo/full_logo_black_words.png"
                   alt="Prize Boards"
-                  width={80}
-                  height={80}
+                  width={200}
+                  height={50}
                 />
               </div>
               <CardTitle className="text-3xl">Welcome, {userName}!</CardTitle>
