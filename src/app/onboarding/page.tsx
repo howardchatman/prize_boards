@@ -90,6 +90,25 @@ function OnboardingContent() {
     const { data: { user } } = await supabase.auth.getUser();
 
     if (user) {
+      // Create PAYG subscription if none exists
+      const { data: existingSub } = await supabase
+        .from('subscriptions')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!existingSub) {
+        await supabase
+          .from('subscriptions')
+          .insert({ user_id: user.id, plan: 'payg', is_active: true });
+      } else {
+        // Ensure subscription is active
+        await supabase
+          .from('subscriptions')
+          .update({ is_active: true })
+          .eq('user_id', user.id);
+      }
+
       await supabase
         .from('profiles')
         .update({ onboarding_completed: true })

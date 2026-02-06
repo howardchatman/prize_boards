@@ -16,7 +16,7 @@ function LoginForm() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get('redirect') || '/dashboard';
+  const redirect = searchParams.get('redirect') || '/onboarding';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +40,7 @@ function LoginForm() {
   };
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md relative z-10">
       <CardHeader className="space-y-1">
         <CardTitle className="text-2xl font-bold text-center">Sign in</CardTitle>
         <CardDescription className="text-center">
@@ -94,8 +94,16 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <Suspense fallback={<div className="w-full max-w-md h-96 bg-gray-100 animate-pulse rounded-lg" />}>
+    <div
+      className="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 relative"
+      style={{
+        backgroundImage: `url('/signup-bg.jpg')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+      }}
+    >
+      <div className="absolute inset-0 bg-black/60" />
+      <Suspense fallback={<div className="w-full max-w-md h-96 bg-gray-100 animate-pulse rounded-lg relative z-10" />}>
         <LoginForm />
       </Suspense>
     </div>

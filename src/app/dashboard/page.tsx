@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { SubscriptionGateServer } from '@/components/subscription/subscription-gate-server';
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -10,6 +12,18 @@ export default async function DashboardPage() {
 
   if (!user) {
     redirect('/login');
+  }
+
+  // Check subscription
+  const { data: subscription } = await supabase
+    .from('subscriptions')
+    .select('plan, is_active')
+    .eq('user_id', user.id)
+    .single();
+
+  // If no subscription, show plan selection
+  if (!subscription?.is_active) {
+    return <SubscriptionGateServer />;
   }
 
   // Get user's hosted boards
@@ -34,6 +48,10 @@ export default async function DashboardPage() {
     .filter((b, i, arr) => arr.findIndex((x) => x.id === b.id) === i)
     .slice(0, 5);
 
+  // Get plan details
+  const planName = subscription?.plan === 'pro_host' ? 'Pro Host' :
+                   subscription?.plan === 'host_plus' ? 'Host+' : 'Pay-As-You-Go';
+
   return (
     <div className="space-y-8">
       <div className="flex justify-between items-center">
@@ -41,9 +59,14 @@ export default async function DashboardPage() {
           <h1 className="text-3xl font-bold">Dashboard</h1>
           <p className="text-gray-600">Welcome back! Manage your boards and see your activity.</p>
         </div>
-        <Button asChild>
-          <Link href="/dashboard/board/create">Create New Board</Link>
-        </Button>
+        <div className="flex items-center gap-4">
+          <Badge variant="outline" className="text-sm py-1 px-3">
+            {planName}
+          </Badge>
+          <Button asChild>
+            <Link href="/dashboard/board/create">Create New Board</Link>
+          </Button>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
@@ -108,7 +131,7 @@ export default async function DashboardPage() {
           <CardContent>
             {joinedBoards && joinedBoards.length > 0 ? (
               <div className="space-y-4">
-                {joinedBoards.map((board: any) => (
+                {joinedBoards.map((board: { id: string; title: string; event_name: string; status: string }) => (
                   <Link
                     key={board.id}
                     href={`/board/${board.id}`}
@@ -145,6 +168,56 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Quick Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{hostedBoards?.length || 0}</div>
+            <p className="text-sm text-gray-500">Boards Created</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">{joinedBoards?.length || 0}</div>
+            <p className="text-sm text-gray-500">Boards Joined</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">
+              {hostedBoards?.filter(b => b.status === 'open').length || 0}
+            </div>
+            <p className="text-sm text-gray-500">Active Boards</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">
+              {hostedBoards?.filter(b => b.status === 'completed').length || 0}
+            </div>
+            <p className="text-sm text-gray-500">Completed</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Account Links */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Account</CardTitle>
+          <CardDescription>Manage your account and subscription</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-4">
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/profile">Edit Profile</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link href="/dashboard/subscription">Manage Subscription</Link>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
