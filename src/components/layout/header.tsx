@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
@@ -36,11 +37,14 @@ export function Header() {
   return (
     <header className="border-b bg-white">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-sm">PB</span>
-          </div>
-          <span className="font-bold text-xl">Prize Boards</span>
+        <Link href="/" className="flex items-center">
+          <Image
+            src="/prize_boards_logo/full_logo_black_words.png"
+            alt="Prize Boards"
+            width={160}
+            height={40}
+            priority
+          />
         </Link>
 
         <nav className="hidden md:flex items-center space-x-6">
