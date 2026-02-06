@@ -184,8 +184,8 @@ function OnboardingContent() {
           <Card className="text-center">
             <CardHeader>
               <div className="flex justify-center mb-4">
-                <div className="p-4 bg-primary/10 rounded-full">
-                  <Trophy className="h-12 w-12 text-primary" />
+                <div className="p-4 bg-green-100 rounded-full">
+                  <Trophy className="h-12 w-12 text-green-600" />
                 </div>
               </div>
               <CardTitle className="text-3xl">Welcome, {userName}!</CardTitle>
@@ -201,19 +201,19 @@ function OnboardingContent() {
               <div className="grid grid-cols-3 gap-4 py-4">
                 <div className="text-center">
                   <div className="flex justify-center mb-2">
-                    <Grid3X3 className="h-8 w-8 text-gray-700" />
+                    <Grid3X3 className="h-8 w-8 text-green-600" />
                   </div>
                   <p className="text-sm text-gray-600">Create boards</p>
                 </div>
                 <div className="text-center">
                   <div className="flex justify-center mb-2">
-                    <CreditCard className="h-8 w-8 text-gray-700" />
+                    <CreditCard className="h-8 w-8 text-green-600" />
                   </div>
                   <p className="text-sm text-gray-600">Collect payments</p>
                 </div>
                 <div className="text-center">
                   <div className="flex justify-center mb-2">
-                    <Medal className="h-8 w-8 text-gray-700" />
+                    <Medal className="h-8 w-8 text-green-600" />
                   </div>
                   <p className="text-sm text-gray-600">Auto payouts</p>
                 </div>
@@ -242,18 +242,18 @@ function OnboardingContent() {
                   setRole('host');
                   setStep('host-intro');
                 }}
-                className={`p-6 rounded-xl border-2 text-left transition-all hover:border-primary hover:bg-primary/5 ${
-                  role === 'host' ? 'border-primary bg-primary/5' : 'border-gray-200'
+                className={`p-6 rounded-xl border-2 text-left transition-all hover:border-green-500 hover:bg-green-50 ${
+                  role === 'host' ? 'border-green-500 bg-green-50' : 'border-gray-200'
                 }`}
               >
-                <div className="p-3 bg-gray-100 rounded-lg w-fit mb-3">
-                  <Target className="h-8 w-8 text-gray-700" />
+                <div className="p-3 bg-green-100 rounded-lg w-fit mb-3">
+                  <Target className="h-8 w-8 text-green-600" />
                 </div>
                 <h3 className="font-bold text-lg mb-2">I want to host a board</h3>
                 <p className="text-sm text-gray-600">
                   Create a sport squares board for an upcoming game. Invite friends and collect entries.
                 </p>
-                <Badge className="mt-3" variant="secondary">Most popular</Badge>
+                <Badge className="mt-3 bg-green-100 text-green-700 hover:bg-green-100">Most popular</Badge>
               </button>
 
               <button
@@ -261,12 +261,12 @@ function OnboardingContent() {
                   setRole('player');
                   setStep('complete');
                 }}
-                className={`p-6 rounded-xl border-2 text-left transition-all hover:border-primary hover:bg-primary/5 ${
-                  role === 'player' ? 'border-primary bg-primary/5' : 'border-gray-200'
+                className={`p-6 rounded-xl border-2 text-left transition-all hover:border-green-500 hover:bg-green-50 ${
+                  role === 'player' ? 'border-green-500 bg-green-50' : 'border-gray-200'
                 }`}
               >
-                <div className="p-3 bg-gray-100 rounded-lg w-fit mb-3">
-                  <Users className="h-8 w-8 text-gray-700" />
+                <div className="p-3 bg-green-100 rounded-lg w-fit mb-3">
+                  <Users className="h-8 w-8 text-green-600" />
                 </div>
                 <h3 className="font-bold text-lg mb-2">I want to join a board</h3>
                 <p className="text-sm text-gray-600">
@@ -287,8 +287,8 @@ function OnboardingContent() {
           <Card>
             <CardHeader className="text-center">
               <div className="flex justify-center mb-4">
-                <div className="p-4 bg-primary/10 rounded-full">
-                  <Flame className="h-12 w-12 text-primary" />
+                <div className="p-4 bg-green-100 rounded-full">
+                  <Flame className="h-12 w-12 text-green-600" />
                 </div>
               </div>
               <CardTitle className="text-2xl">Hosting is easy!</CardTitle>
@@ -544,11 +544,11 @@ function OnboardingContent() {
           <Card className="text-center">
             <CardHeader>
               <div className="flex justify-center mb-4">
-                <div className={`p-4 rounded-full ${subscriptionSuccess ? 'bg-green-100' : 'bg-primary/10'}`}>
+                <div className="p-4 rounded-full bg-green-100">
                   {subscriptionSuccess ? (
                     <CheckCircle2 className="h-12 w-12 text-green-600" />
                   ) : (
-                    <Rocket className="h-12 w-12 text-primary" />
+                    <Rocket className="h-12 w-12 text-green-600" />
                   )}
                 </div>
               </div>
