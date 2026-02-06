@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function Footer() {
   return (
@@ -6,12 +7,14 @@ export function Footer() {
       <div className="container mx-auto px-4 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">PB</span>
-              </div>
-              <span className="font-bold text-xl">Prize Boards</span>
-            </div>
+            <Link href="/">
+              <Image
+                src="/prize_boards_logo/full_logo_black_words.png"
+                alt="Prize Boards"
+                width={160}
+                height={40}
+              />
+            </Link>
             <p className="text-sm text-gray-600">
               Sport boards. Real prizes. Automated payouts.
             </p>
