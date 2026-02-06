@@ -13,5 +13,5 @@ export function getResend(): Resend {
   return resendInstance;
 }
 
-// Default sender email - uses verified subdomain
-export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Prize Boards <support@updates.prize-boards.com>';
+// Default sender email - uses verified domain
+export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Prize Boards <support@prize-boards.com>';
