@@ -3,13 +3,13 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import {
-  Trophy,
   Grid3X3,
   CreditCard,
   Medal,
@@ -184,9 +184,12 @@ function OnboardingContent() {
           <Card className="text-center">
             <CardHeader>
               <div className="flex justify-center mb-4">
-                <div className="p-4 bg-green-100 rounded-full">
-                  <Trophy className="h-12 w-12 text-green-600" />
-                </div>
+                <Image
+                  src="/prize_boards_logo/icon_only.png"
+                  alt="Prize Boards"
+                  width={80}
+                  height={80}
+                />
               </div>
               <CardTitle className="text-3xl">Welcome, {userName}!</CardTitle>
               <CardDescription className="text-lg">
