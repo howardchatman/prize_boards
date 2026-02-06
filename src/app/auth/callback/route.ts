@@ -26,11 +26,18 @@ export async function GET(request: Request) {
 
       // New users go to onboarding, returning users go to dashboard
       if (!profile?.onboarding_completed) {
-        // Send welcome email to new users (fire and forget)
+        // Send welcome email to new users
         const userName = profile?.full_name || data.user.email?.split('@')[0] || 'there';
-        sendWelcomeEmail(data.user.email!, userName).catch((err) => {
-          console.error('Failed to send welcome email:', err);
-        });
+        const userEmail = data.user.email!;
+
+        console.log('[Auth Callback] Sending welcome email to:', userEmail, 'userName:', userName);
+
+        try {
+          const result = await sendWelcomeEmail(userEmail, userName);
+          console.log('[Auth Callback] Welcome email result:', result);
+        } catch (err) {
+          console.error('[Auth Callback] Failed to send welcome email:', err);
+        }
 
         return NextResponse.redirect(`${origin}/onboarding`);
       }
