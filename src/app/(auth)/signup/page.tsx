@@ -55,7 +55,11 @@ export default function SignupPage() {
 
     // Send welcome email via API route (runs server-side with Resend)
     try {
-      await fetch('/api/auth/welcome', { method: 'POST' });
+      await fetch('/api/auth/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, name: fullName }),
+      });
     } catch {
       // Don't block signup if welcome email fails
     }
@@ -77,18 +81,18 @@ export default function SignupPage() {
         <div className="absolute inset-0 bg-black/60" />
         <Card className="w-full max-w-md relative z-10">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold text-center">Check your email</CardTitle>
+            <CardTitle className="text-2xl font-bold text-center">Account created!</CardTitle>
             <CardDescription className="text-center">
-              We&apos;ve sent you a confirmation link. Please check your email to verify your account.
+              Your account has been created successfully. Check your email for a welcome message!
             </CardDescription>
           </CardHeader>
           <CardFooter>
             <Button
               className="w-full"
               variant="outline"
-              onClick={() => router.push('/login')}
+              onClick={() => router.push('/onboarding')}
             >
-              Back to login
+              Get Started
             </Button>
           </CardFooter>
         </Card>

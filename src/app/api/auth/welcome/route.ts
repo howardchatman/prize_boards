@@ -1,28 +1,21 @@
-import { createClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { sendWelcomeEmail } from '@/lib/email/send';
 
-export async function POST() {
+export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { email, name } = await request.json();
 
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!email) {
+      return NextResponse.json({ error: 'Email is required' }, { status: 400 });
     }
 
-    const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'there';
-    const userEmail = user.email;
+    const userName = name || email.split('@')[0] || 'there';
 
-    if (!userEmail) {
-      return NextResponse.json({ error: 'No email found' }, { status: 400 });
-    }
+    console.log('[Welcome API] Sending welcome email to:', email, 'userName:', userName);
 
-    console.log('[Welcome API] Sending welcome email to:', userEmail, 'userName:', userName);
+    const result = await sendWelcomeEmail(email, userName);
 
-    const result = await sendWelcomeEmail(userEmail, userName);
-
-    console.log('[Welcome API] Welcome email result:', result);
+    console.log('[Welcome API] Welcome email result:', JSON.stringify(result));
 
     return NextResponse.json(result);
   } catch (err) {
