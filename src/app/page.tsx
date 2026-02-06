@@ -17,9 +17,9 @@ export default function HomePage() {
       <main className="flex-1">
         {/* Hero Section with Background Image */}
         <section
-          className="relative min-h-[90vh] flex items-center justify-center bg-cover bg-center bg-no-repeat"
+          className="relative min-h-[90vh] flex items-center justify-center bg-cover md:bg-center bg-top bg-no-repeat"
           style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=2000&q=80')`,
+            backgroundImage: `url('https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=2000&q=80')`,
           }}
         >
           {/* Dark overlay for text readability */}
