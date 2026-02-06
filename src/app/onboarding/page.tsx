@@ -8,6 +8,19 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import {
+  Trophy,
+  Grid3X3,
+  CreditCard,
+  Medal,
+  Target,
+  Users,
+  Wallet,
+  TrendingUp,
+  Rocket,
+  CheckCircle2,
+  Flame
+} from 'lucide-react';
 
 type Step = 'welcome' | 'role' | 'host-intro' | 'subscription' | 'complete';
 
@@ -170,7 +183,11 @@ function OnboardingContent() {
         {step === 'welcome' && (
           <Card className="text-center">
             <CardHeader>
-              <div className="text-5xl mb-4">🎉</div>
+              <div className="flex justify-center mb-4">
+                <div className="p-4 bg-primary/10 rounded-full">
+                  <Trophy className="h-12 w-12 text-primary" />
+                </div>
+              </div>
               <CardTitle className="text-3xl">Welcome, {userName}!</CardTitle>
               <CardDescription className="text-lg">
                 You&apos;re all set to start using Prize Boards
@@ -183,15 +200,21 @@ function OnboardingContent() {
               </p>
               <div className="grid grid-cols-3 gap-4 py-4">
                 <div className="text-center">
-                  <div className="text-2xl mb-1">📋</div>
+                  <div className="flex justify-center mb-2">
+                    <Grid3X3 className="h-8 w-8 text-gray-700" />
+                  </div>
                   <p className="text-sm text-gray-600">Create boards</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl mb-1">💳</div>
+                  <div className="flex justify-center mb-2">
+                    <CreditCard className="h-8 w-8 text-gray-700" />
+                  </div>
                   <p className="text-sm text-gray-600">Collect payments</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl mb-1">🏆</div>
+                  <div className="flex justify-center mb-2">
+                    <Medal className="h-8 w-8 text-gray-700" />
+                  </div>
                   <p className="text-sm text-gray-600">Auto payouts</p>
                 </div>
               </div>
@@ -223,7 +246,9 @@ function OnboardingContent() {
                   role === 'host' ? 'border-primary bg-primary/5' : 'border-gray-200'
                 }`}
               >
-                <div className="text-4xl mb-3">🎯</div>
+                <div className="p-3 bg-gray-100 rounded-lg w-fit mb-3">
+                  <Target className="h-8 w-8 text-gray-700" />
+                </div>
                 <h3 className="font-bold text-lg mb-2">I want to host a board</h3>
                 <p className="text-sm text-gray-600">
                   Create a sport squares board for an upcoming game. Invite friends and collect entries.
@@ -240,7 +265,9 @@ function OnboardingContent() {
                   role === 'player' ? 'border-primary bg-primary/5' : 'border-gray-200'
                 }`}
               >
-                <div className="text-4xl mb-3">🎮</div>
+                <div className="p-3 bg-gray-100 rounded-lg w-fit mb-3">
+                  <Users className="h-8 w-8 text-gray-700" />
+                </div>
                 <h3 className="font-bold text-lg mb-2">I want to join a board</h3>
                 <p className="text-sm text-gray-600">
                   Someone shared a board with you? Join and claim your squares to win prizes.
@@ -259,7 +286,11 @@ function OnboardingContent() {
         {step === 'host-intro' && (
           <Card>
             <CardHeader className="text-center">
-              <div className="text-5xl mb-4">🏈</div>
+              <div className="flex justify-center mb-4">
+                <div className="p-4 bg-primary/10 rounded-full">
+                  <Flame className="h-12 w-12 text-primary" />
+                </div>
+              </div>
               <CardTitle className="text-2xl">Hosting is easy!</CardTitle>
               <CardDescription>
                 Here&apos;s how Prize Boards works for hosts
@@ -317,7 +348,11 @@ function OnboardingContent() {
           <div className="space-y-6">
             <Card>
               <CardHeader className="text-center">
-                <div className="text-5xl mb-4">💰</div>
+                <div className="flex justify-center mb-4">
+                  <div className="p-4 bg-green-100 rounded-full">
+                    <Wallet className="h-12 w-12 text-green-600" />
+                  </div>
+                </div>
                 <CardTitle className="text-2xl">Keep More of Your Winnings</CardTitle>
                 <CardDescription className="text-lg">
                   Choose a plan that fits your hosting style. Serious hosts save hundreds with a subscription.
@@ -485,9 +520,10 @@ function OnboardingContent() {
                 </div>
 
                 {/* Social Proof */}
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center justify-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-green-600" />
                   <p className="text-green-800 font-medium">
-                    🎉 Over 500 hosts saved $50,000+ in fees last month with Host+
+                    Over 500 hosts saved $50,000+ in fees last month with Host+
                   </p>
                 </div>
               </CardContent>
@@ -507,7 +543,15 @@ function OnboardingContent() {
         {step === 'complete' && (
           <Card className="text-center">
             <CardHeader>
-              <div className="text-5xl mb-4">{subscriptionSuccess ? '🎉' : '🚀'}</div>
+              <div className="flex justify-center mb-4">
+                <div className={`p-4 rounded-full ${subscriptionSuccess ? 'bg-green-100' : 'bg-primary/10'}`}>
+                  {subscriptionSuccess ? (
+                    <CheckCircle2 className="h-12 w-12 text-green-600" />
+                  ) : (
+                    <Rocket className="h-12 w-12 text-primary" />
+                  )}
+                </div>
+              </div>
               <CardTitle className="text-2xl">
                 {subscriptionSuccess ? 'Welcome to Host+!' : "You're all set!"}
               </CardTitle>
