@@ -44,7 +44,7 @@ export default function HomePage() {
                   <Button size="lg" className="bg-green-500 hover:bg-green-600 text-white" asChild>
                     <Link href="/signup">Create a Prize Board</Link>
                   </Button>
-                  <Button size="lg" variant="outline" className="border-white text-white hover:bg-white/10" asChild>
+                  <Button size="lg" className="bg-white text-gray-900 hover:bg-gray-100" asChild>
                     <Link href="#how-it-works">See How It Works</Link>
                   </Button>
                 </div>
