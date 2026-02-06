@@ -65,6 +65,13 @@ const footer = {
   marginTop: '20px',
 };
 
+const logoUrl = `${baseUrl}/prize_boards_logo/full_logo_black_words.png`;
+
+const logo = {
+  margin: '0 auto 24px',
+  display: 'block',
+};
+
 // ============== WELCOME EMAIL ==============
 interface WelcomeEmailProps {
   userName: string;
@@ -78,6 +85,7 @@ export function WelcomeEmail({ userName }: WelcomeEmailProps) {
       <Body style={main}>
         <Container style={container}>
           <Section style={{ padding: '0 48px' }}>
+            <Img src={logoUrl} width="160" height="40" alt="Prize Boards" style={logo} />
             <Heading style={heading}>Welcome to Prize Boards! 🎉</Heading>
             <Text style={paragraph}>Hi {userName},</Text>
             <Text style={paragraph}>
@@ -139,6 +147,7 @@ export function BoardInviteEmail({
       <Body style={main}>
         <Container style={container}>
           <Section style={{ padding: '0 48px' }}>
+            <Img src={logoUrl} width="160" height="40" alt="Prize Boards" style={logo} />
             <Heading style={heading}>You&apos;re Invited! 🏈</Heading>
             <Text style={paragraph}>
               <strong>{inviterName}</strong> invited you to join their sport squares board!
@@ -210,6 +219,7 @@ export function PayoutEmail({
       <Body style={main}>
         <Container style={container}>
           <Section style={{ padding: '0 48px' }}>
+            <Img src={logoUrl} width="160" height="40" alt="Prize Boards" style={logo} />
             <Heading style={heading}>Congratulations, You Won! 🏆</Heading>
             <Text style={paragraph}>Hi {userName},</Text>
             <Text style={paragraph}>
@@ -295,6 +305,7 @@ export function SquareClaimedEmail({
       <Body style={main}>
         <Container style={container}>
           <Section style={{ padding: '0 48px' }}>
+            <Img src={logoUrl} width="160" height="40" alt="Prize Boards" style={logo} />
             <Heading style={heading}>New Square Claimed! 💰</Heading>
             <Text style={paragraph}>Hi {hostName},</Text>
             <Text style={paragraph}>
@@ -375,6 +386,7 @@ export function BoardLockedEmail({
       <Body style={main}>
         <Container style={container}>
           <Section style={{ padding: '0 48px' }}>
+            <Img src={logoUrl} width="160" height="40" alt="Prize Boards" style={logo} />
             <Heading style={heading}>Numbers Are In! 🎲</Heading>
             <Text style={paragraph}>Hi {userName},</Text>
             <Text style={paragraph}>
