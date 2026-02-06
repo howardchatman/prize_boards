@@ -19,7 +19,7 @@ export default function HomePage() {
         <section
           className="relative min-h-[90vh] flex items-center justify-center bg-cover md:bg-center bg-top bg-no-repeat"
           style={{
-            backgroundImage: `url('/hero-bg.jpg')`,
+            backgroundImage: `url('/pb_hero_image.png')`,
           }}
         >
           {/* Dark overlay for text readability */}
