@@ -53,6 +53,13 @@ export default function SignupPage() {
       return;
     }
 
+    // Send welcome email via API route (runs server-side with Resend)
+    try {
+      await fetch('/api/auth/welcome', { method: 'POST' });
+    } catch {
+      // Don't block signup if welcome email fails
+    }
+
     setSuccess(true);
     setLoading(false);
   };
