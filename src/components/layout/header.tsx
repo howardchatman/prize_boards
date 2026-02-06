@@ -47,11 +47,11 @@ export function Header() {
           />
         </Link>
 
-        <nav className="hidden md:flex items-center space-x-6">
-          <Link href="/#how-it-works" className="text-sm text-gray-600 hover:text-gray-900">
+        <nav className="hidden md:flex items-center space-x-8">
+          <Link href="/#how-it-works" className="text-base font-semibold text-gray-700 hover:text-gray-900">
             How It Works
           </Link>
-          <Link href="/#pricing" className="text-sm text-gray-600 hover:text-gray-900">
+          <Link href="/#pricing" className="text-base font-semibold text-gray-700 hover:text-gray-900">
             Pricing
           </Link>
         </nav>
