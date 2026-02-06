@@ -19,7 +19,7 @@ export default function HomePage() {
         <section
           className="relative min-h-[90vh] flex items-center justify-center bg-cover bg-center bg-no-repeat"
           style={{
-            backgroundImage: `url('https://images.unsplash.com/photo-1489944440615-453fc2b6a9a9?auto=format&fit=crop&w=2000&q=80')`,
+            backgroundImage: `url('https://images.unsplash.com/photo-1566577739112-5180d4bf9390?auto=format&fit=crop&w=2000&q=80')`,
           }}
         >
           {/* Dark overlay for text readability */}

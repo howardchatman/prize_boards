@@ -19,16 +19,6 @@ interface BoardActionsProps {
   board: Board;
 }
 
-// Fisher-Yates shuffle for provably random number assignment
-function shuffleArray(array: number[]): number[] {
-  const shuffled = [...array];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
-
 export function BoardActions({ board }: BoardActionsProps) {
   const router = useRouter();
   const [showPublishDialog, setShowPublishDialog] = useState(false);
@@ -57,28 +47,24 @@ export function BoardActions({ board }: BoardActionsProps) {
 
   const handleLock = async () => {
     setLoading(true);
-    const supabase = createClient();
 
-    // Generate random digits for rows and columns
-    const digits = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-    const rowDigits = shuffleArray(digits);
-    const colDigits = shuffleArray(digits);
+    try {
+      const response = await fetch('/api/board/lock', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boardId: board.id }),
+      });
 
-    const { error } = await supabase
-      .from('boards')
-      .update({
-        status: 'locked',
-        row_digits: rowDigits,
-        col_digits: colDigits,
-        locked_at: new Date().toISOString(),
-      })
-      .eq('id', board.id);
+      const data = await response.json();
 
-    if (error) {
-      toast.error('Failed to lock board: ' + error.message);
-    } else {
-      toast.success('Board locked! Numbers have been assigned.');
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to lock board');
+      }
+
+      toast.success('Board locked! Numbers have been assigned and players have been notified.');
       router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to lock board');
     }
 
     setShowLockDialog(false);

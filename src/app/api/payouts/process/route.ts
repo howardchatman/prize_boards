@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/server';
 import { getWinningSquarePosition } from '@/lib/stripe';
+import { sendPayoutEmail } from '@/lib/email/send';
 import type { Board, Square, PayoutRule } from '@/types/database';
 
 export async function POST(request: Request) {
@@ -174,6 +175,56 @@ export async function POST(request: Request) {
 
     if (updateError) {
       console.error('Failed to update board status:', updateError);
+    }
+
+    // Send payout notification emails to winners (fire and forget)
+    const winnersToNotify = payoutEventsToCreate.filter(
+      (p) => p.winner_user_id && p.prize_amount_cents > 0
+    );
+
+    if (winnersToNotify.length > 0) {
+      (async () => {
+        try {
+          // Get unique winner IDs
+          const winnerIds = [...new Set(winnersToNotify.map((w) => w.winner_user_id!))];
+
+          // Get winner profiles
+          const { data: winnerProfiles } = await adminSupabase
+            .from('profiles')
+            .select('id, email, full_name')
+            .in('id', winnerIds);
+
+          if (winnerProfiles) {
+            const profileMap = Object.fromEntries(
+              winnerProfiles.map((p) => [p.id, p])
+            );
+
+            // Send email for each payout event
+            for (const payout of winnersToNotify) {
+              const winner = profileMap[payout.winner_user_id!];
+              if (winner?.email) {
+                // Find the square position
+                const square = squares.find((s) => s.id === payout.winning_square_id);
+                const squarePosition = square
+                  ? `Row ${square.row_index + 1}, Col ${square.col_index + 1}`
+                  : 'Unknown';
+
+                await sendPayoutEmail(
+                  winner.email,
+                  winner.full_name || winner.email.split('@')[0],
+                  board.title,
+                  board.event_name,
+                  payout.label,
+                  payout.prize_amount_cents,
+                  squarePosition
+                );
+              }
+            }
+          }
+        } catch (emailErr) {
+          console.error('Failed to send payout emails:', emailErr);
+        }
+      })();
     }
 
     return NextResponse.json({

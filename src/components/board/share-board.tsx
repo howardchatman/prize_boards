@@ -9,10 +9,13 @@ interface ShareBoardProps {
   boardId: string;
   boardTitle: string;
   inviteCode: string;
+  isHost?: boolean;
 }
 
-export function ShareBoard({ boardId, boardTitle, inviteCode }: ShareBoardProps) {
+export function ShareBoard({ boardId, boardTitle, inviteCode, isHost = false }: ShareBoardProps) {
   const [copied, setCopied] = useState<'link' | 'code' | null>(null);
+  const [emailInput, setEmailInput] = useState('');
+  const [sending, setSending] = useState(false);
 
   const boardUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/board/${boardId}`
@@ -30,6 +33,45 @@ export function ShareBoard({ boardId, boardTitle, inviteCode }: ShareBoardProps)
       setTimeout(() => setCopied(null), 2000);
     } catch {
       toast.error('Failed to copy');
+    }
+  };
+
+  const sendInvites = async () => {
+    const emails = emailInput
+      .split(/[,\s]+/)
+      .map((e) => e.trim())
+      .filter((e) => e.includes('@'));
+
+    if (emails.length === 0) {
+      toast.error('Please enter valid email addresses');
+      return;
+    }
+
+    if (emails.length > 10) {
+      toast.error('Maximum 10 invitations at a time');
+      return;
+    }
+
+    setSending(true);
+    try {
+      const response = await fetch('/api/board/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ boardId, emails }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send invitations');
+      }
+
+      toast.success(data.message);
+      setEmailInput('');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to send invitations');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -88,6 +130,31 @@ export function ShareBoard({ boardId, boardTitle, inviteCode }: ShareBoardProps)
           </Button>
         </div>
       </div>
+
+      {/* Email Invitations (Host only) */}
+      {isHost && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Invite by Email</label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="Enter emails (comma separated)"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+              className="text-sm"
+            />
+            <Button
+              onClick={sendInvites}
+              disabled={sending || !emailInput.trim()}
+              className="shrink-0"
+            >
+              {sending ? 'Sending...' : 'Send'}
+            </Button>
+          </div>
+          <p className="text-xs text-gray-500">
+            Enter up to 10 email addresses, separated by commas
+          </p>
+        </div>
+      )}
 
       {/* Social Share Buttons */}
       <div className="space-y-2">

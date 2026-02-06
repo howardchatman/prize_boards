@@ -226,6 +226,7 @@ export default async function BoardDetailPage({ params }: Props) {
               boardId={id}
               boardTitle={board.title}
               inviteCode={board.invite_code}
+              isHost={true}
             />
           </CardContent>
         </Card>

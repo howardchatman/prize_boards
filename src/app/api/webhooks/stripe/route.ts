@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe';
 import { createAdminClient } from '@/lib/supabase/server';
+import { sendSquareClaimedEmail } from '@/lib/email/send';
 import Stripe from 'stripe';
 
 export async function POST(request: Request) {
@@ -63,6 +64,70 @@ export async function POST(request: Request) {
           .eq('stripe_checkout_session_id', session.id);
 
         console.log(`Square ${square_id} marked as claimed`);
+
+        // Send email notification to host (fire and forget)
+        if (board_id && user_id) {
+          (async () => {
+            try {
+              // Get square details
+              const { data: square } = await supabase
+                .from('squares')
+                .select('row_index, col_index')
+                .eq('id', square_id)
+                .single();
+
+              // Get board with host info
+              const { data: board } = await supabase
+                .from('boards')
+                .select('title, square_price, host_id')
+                .eq('id', board_id)
+                .single();
+
+              if (!board || !square) return;
+
+              // Get host profile
+              const { data: hostProfile } = await supabase
+                .from('profiles')
+                .select('full_name, email')
+                .eq('id', board.host_id)
+                .single();
+
+              // Get player profile
+              const { data: playerProfile } = await supabase
+                .from('profiles')
+                .select('full_name')
+                .eq('id', user_id)
+                .single();
+
+              // Count total claimed squares
+              const { count: claimedCount } = await supabase
+                .from('squares')
+                .select('*', { count: 'exact', head: true })
+                .eq('board_id', board_id)
+                .eq('status', 'claimed');
+
+              if (hostProfile?.email) {
+                const squarePosition = `Row ${square.row_index + 1}, Col ${square.col_index + 1}`;
+                const playerName = playerProfile?.full_name || 'A player';
+                const hostName = hostProfile.full_name || 'Host';
+
+                await sendSquareClaimedEmail(
+                  hostProfile.email,
+                  hostName,
+                  board.title,
+                  playerName,
+                  squarePosition,
+                  board.square_price,
+                  claimedCount || 1,
+                  100 // 10x10 grid
+                );
+              }
+            } catch (emailErr) {
+              console.error('Failed to send square claimed email:', emailErr);
+            }
+          })();
+        }
+
         break;
       }
 
