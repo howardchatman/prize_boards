@@ -164,7 +164,7 @@ export function HeroMiniGame() {
       {/* Header */}
       <div className="flex justify-between items-center mb-4">
         <div>
-          <h3 className="font-bold text-lg">Try It Free!</h3>
+          <h3 className="font-bold text-lg">Play Demo Game!</h3>
           <p className="text-sm text-gray-500">
             {gameState.phase === 'picking'
               ? `Pick ${3 - gameState.selectedSquares.size} more square${3 - gameState.selectedSquares.size !== 1 ? 's' : ''}`
