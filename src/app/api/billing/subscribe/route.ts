@@ -18,7 +18,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { plan } = await request.json();
+    const { plan, returnTo } = await request.json();
 
     if (!plan || plan === 'payg' || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
@@ -26,6 +26,14 @@ export async function POST(request: Request) {
 
     const stripe = getStripe();
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+
+    // Determine success URL based on returnTo param
+    const successUrl = returnTo === 'onboarding'
+      ? `${appUrl}/onboarding?subscription=success`
+      : `${appUrl}/dashboard?subscription=success`;
+    const cancelUrl = returnTo === 'onboarding'
+      ? `${appUrl}/onboarding?canceled=true`
+      : `${appUrl}/dashboard/subscription?canceled=true`;
 
     // Get or create Stripe customer
     let { data: subscription } = await supabase
@@ -65,8 +73,8 @@ export async function POST(request: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${appUrl}/dashboard?subscription=success`,
-      cancel_url: `${appUrl}/dashboard/subscription?canceled=true`,
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       metadata: {
         user_id: user.id,
         plan,

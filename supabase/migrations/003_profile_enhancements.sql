@@ -10,6 +10,12 @@ insert into storage.buckets (id, name, public)
 values ('avatars', 'avatars', true)
 on conflict (id) do nothing;
 
+-- Drop existing policies if they exist
+drop policy if exists "Users can upload own avatar" on storage.objects;
+drop policy if exists "Users can update own avatar" on storage.objects;
+drop policy if exists "Public can read avatars" on storage.objects;
+drop policy if exists "Users can delete own avatar" on storage.objects;
+
 -- Allow authenticated users to upload their own avatar
 create policy "Users can upload own avatar"
 on storage.objects for insert
