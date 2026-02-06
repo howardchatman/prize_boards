@@ -13,5 +13,5 @@ export function getResend(): Resend {
   return resendInstance;
 }
 
-// Default sender email - update this to your verified domain
-export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Prize Boards <noreply@prizeboards.com>';
+// Default sender email - uses verified domain
+export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'Prize Boards <support@prizeboards.com>';

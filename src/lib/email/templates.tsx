@@ -13,7 +13,7 @@ import {
   Text,
 } from '@react-email/components';
 
-const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://prizeboards.com';
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://prize-boards.com';
 
 // Shared styles
 const main = {
@@ -106,7 +106,7 @@ export function WelcomeEmail({ userName }: WelcomeEmailProps) {
               Prize Boards - The easiest way to run sport squares pools.
               <br />
               <Link href={baseUrl} style={{ color: '#8898aa' }}>
-                prizeboards.com
+                prize-boards.com
               </Link>
             </Text>
           </Section>
@@ -175,7 +175,7 @@ export function BoardInviteEmail({
               You received this email because {inviterName} invited you to Prize Boards.
               <br />
               <Link href={baseUrl} style={{ color: '#8898aa' }}>
-                prizeboards.com
+                prize-boards.com
               </Link>
             </Text>
           </Section>
@@ -256,7 +256,7 @@ export function PayoutEmail({
               Prize Boards - The easiest way to run sport squares pools.
               <br />
               <Link href={baseUrl} style={{ color: '#8898aa' }}>
-                prizeboards.com
+                prize-boards.com
               </Link>
             </Text>
           </Section>
@@ -410,7 +410,7 @@ export function BoardLockedEmail({
               Prize Boards - The easiest way to run sport squares pools.
               <br />
               <Link href={baseUrl} style={{ color: '#8898aa' }}>
-                prizeboards.com
+                prize-boards.com
               </Link>
             </Text>
           </Section>
