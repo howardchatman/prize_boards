@@ -185,7 +185,7 @@ function OnboardingContent() {
             <CardHeader>
               <div className="flex justify-center mb-4">
                 <Image
-                  src="/prize_boards_logo/icon_only.png"
+                  src="/prize_boards_logo/icon.png"
                   alt="Prize Boards"
                   width={80}
                   height={80}
