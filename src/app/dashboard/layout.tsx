@@ -21,7 +21,7 @@ export default async function DashboardLayout({
   const { data: profile } = await supabase
     .from('profiles')
     .select('onboarding_completed')
-    .eq('id', user.id)
+    .eq('user_id', user.id)
     .single();
 
   if (!profile?.onboarding_completed) {

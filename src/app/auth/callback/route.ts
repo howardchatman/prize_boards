@@ -16,7 +16,7 @@ export async function GET(request: Request) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('onboarding_completed, full_name')
-        .eq('id', data.user.id)
+        .eq('user_id', data.user.id)
         .single();
 
       // If they have a specific redirect, use it

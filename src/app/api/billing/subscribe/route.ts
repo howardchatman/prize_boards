@@ -1,18 +1,22 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createAdminClient } from '@/lib/supabase/server';
 import { getStripe } from '@/lib/stripe';
 import type { Plan } from '@/types/database';
 
-// Stripe Price IDs for each plan (you'll need to create these in Stripe Dashboard)
+// Stripe Price IDs for each plan
 const PRICE_IDS: Record<Exclude<Plan, 'payg'>, string> = {
-  host_plus: process.env.STRIPE_PRICE_HOST_PLUS || 'price_host_plus',
-  pro_host: process.env.STRIPE_PRICE_PRO_HOST || 'price_pro_host',
+  host_plus: process.env.STRIPE_PRICE_HOST_PLUS || '',
+  pro_host: process.env.STRIPE_PRICE_PRO_HOST || '',
 };
 
 export async function POST(request: Request) {
   try {
+    // Use regular client for auth
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
+
+    // Use admin client to bypass RLS for subscription management
+    const adminSupabase = createAdminClient();
 
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,7 +24,9 @@ export async function POST(request: Request) {
 
     const { plan, returnTo } = await request.json();
 
-    if (!plan || plan === 'payg' || !PRICE_IDS[plan as keyof typeof PRICE_IDS]) {
+    const priceId = PRICE_IDS[plan as keyof typeof PRICE_IDS];
+    if (!plan || plan === 'payg' || !priceId) {
+      console.error('Invalid plan or missing price ID:', { plan, priceId, PRICE_IDS });
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
 
@@ -35,8 +41,8 @@ export async function POST(request: Request) {
       ? `${appUrl}/onboarding?canceled=true`
       : `${appUrl}/dashboard/subscription?canceled=true`;
 
-    // Get or create Stripe customer
-    let { data: subscription } = await supabase
+    // Get or create Stripe customer (use admin client to bypass RLS)
+    const { data: subscription } = await adminSupabase
       .from('subscriptions')
       .select('stripe_customer_id')
       .eq('user_id', user.id)
@@ -54,8 +60,8 @@ export async function POST(request: Request) {
       });
       customerId = customer.id;
 
-      // Create subscription record
-      await supabase.from('subscriptions').insert({
+      // Create subscription record (use admin client)
+      await adminSupabase.from('subscriptions').insert({
         user_id: user.id,
         stripe_customer_id: customerId,
         plan: 'payg',
@@ -69,7 +75,7 @@ export async function POST(request: Request) {
       mode: 'subscription',
       line_items: [
         {
-          price: PRICE_IDS[plan as keyof typeof PRICE_IDS],
+          price: priceId,
           quantity: 1,
         },
       ],
@@ -84,8 +90,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ url: session.url });
   } catch (error) {
     console.error('Subscription error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return NextResponse.json(
-      { error: 'Failed to create subscription checkout' },
+      { error: 'Failed to create subscription checkout', details: errorMessage },
       { status: 500 }
     );
   }

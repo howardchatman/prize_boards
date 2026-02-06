@@ -51,7 +51,7 @@ export default function ProfilePage() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       if (profile) {
@@ -84,7 +84,7 @@ export default function ProfilePage() {
         bio: formData.bio || null,
         email_notifications: formData.email_notifications,
       })
-      .eq('id', user.id);
+      .eq('user_id', user.id);
 
     if (error) {
       toast.error('Failed to save profile');
@@ -139,7 +139,7 @@ export default function ProfilePage() {
     const { error: updateError } = await supabase
       .from('profiles')
       .update({ avatar_url: publicUrl })
-      .eq('id', user.id);
+      .eq('user_id', user.id);
 
     if (updateError) {
       toast.error('Failed to update profile');

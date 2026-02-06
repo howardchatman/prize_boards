@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     const { data: hostProfile } = await supabase
       .from('profiles')
       .select('full_name')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .single();
 
     const inviterName = hostProfile?.full_name || user.email?.split('@')[0] || 'A friend';

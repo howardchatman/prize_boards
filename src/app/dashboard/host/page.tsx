@@ -18,7 +18,7 @@ export default async function HostDashboardPage() {
   const { data: profile } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', user.id)
+    .eq('user_id', user.id)
     .single();
 
   // Get all boards hosted by user

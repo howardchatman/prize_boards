@@ -19,7 +19,10 @@ import {
   TrendingUp,
   Rocket,
   CheckCircle2,
-  Flame
+  Flame,
+  Share2,
+  Lock,
+  Trophy
 } from 'lucide-react';
 
 type Step = 'welcome' | 'role' | 'host-intro' | 'subscription' | 'complete';
@@ -60,7 +63,7 @@ function OnboardingContent() {
       const { data: profile } = await supabase
         .from('profiles')
         .select('full_name, onboarding_completed')
-        .eq('id', user.id)
+        .eq('user_id', user.id)
         .single();
 
       if (profile?.onboarding_completed) {
@@ -125,7 +128,7 @@ function OnboardingContent() {
       await supabase
         .from('profiles')
         .update({ onboarding_completed: true })
-        .eq('id', user.id);
+        .eq('user_id', user.id);
     }
 
     if (role === 'host') {
@@ -161,6 +164,16 @@ function OnboardingContent() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white py-12 px-4">
       <div className="max-w-3xl mx-auto">
+        {/* Logo at top of all pages */}
+        <div className="flex justify-center mb-6">
+          <Image
+            src="/prize_boards_logo/full_logo_black_words.png"
+            alt="Prize Boards"
+            width={200}
+            height={50}
+          />
+        </div>
+
         {/* Progress indicator */}
         <div className="flex justify-center mb-8">
           <div className="flex items-center gap-2">
@@ -183,14 +196,6 @@ function OnboardingContent() {
         {step === 'welcome' && (
           <Card className="text-center">
             <CardHeader>
-              <div className="flex justify-center mb-4">
-                <Image
-                  src="/prize_boards_logo/full_logo_black_words.png"
-                  alt="Prize Boards"
-                  width={200}
-                  height={50}
-                />
-              </div>
               <CardTitle className="text-3xl">Welcome, {userName}!</CardTitle>
               <CardDescription className="text-lg">
                 You&apos;re all set to start using Prize Boards
@@ -300,39 +305,46 @@ function OnboardingContent() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="space-y-4">
-                {[
-                  {
-                    step: '1',
-                    title: 'Create your board',
-                    desc: 'Pick your game, set the square price, and choose payout rules.',
-                  },
-                  {
-                    step: '2',
-                    title: 'Share with friends',
-                    desc: 'Send the link via text, email, or social media. They pay online.',
-                  },
-                  {
-                    step: '3',
-                    title: 'Lock & reveal numbers',
-                    desc: 'When ready, lock the board. Numbers are randomly assigned.',
-                  },
-                  {
-                    step: '4',
-                    title: 'Enter scores, we pay winners',
-                    desc: 'Just enter the game scores. Winners get paid automatically!',
-                  },
-                ].map((item) => (
-                  <div key={item.step} className="flex gap-4">
-                    <div className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-bold shrink-0">
-                      {item.step}
-                    </div>
-                    <div>
-                      <h4 className="font-medium">{item.title}</h4>
-                      <p className="text-sm text-gray-600">{item.desc}</p>
-                    </div>
+              <div className="space-y-5">
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+                    <Grid3X3 className="h-6 w-6 text-green-600" />
                   </div>
-                ))}
+                  <div>
+                    <h4 className="font-semibold text-lg">Create your board</h4>
+                    <p className="text-sm text-gray-600">Pick your game, set the square price, and choose payout rules.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+                    <Share2 className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-lg">Share with friends</h4>
+                    <p className="text-sm text-gray-600">Send the link via text, email, or social media. They pay online.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+                    <Lock className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-lg">Lock & reveal numbers</h4>
+                    <p className="text-sm text-gray-600">When ready, lock the board. Numbers are randomly assigned.</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 items-start">
+                  <div className="w-12 h-12 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
+                    <Trophy className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-semibold text-lg">Enter scores, we pay winners</h4>
+                    <p className="text-sm text-gray-600">Just enter the game scores. Winners get paid automatically!</p>
+                  </div>
+                </div>
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">
@@ -431,7 +443,7 @@ function OnboardingContent() {
                     </div>
                     <ul className="space-y-2 text-sm text-gray-600 mb-6">
                       <li className="flex items-center gap-2">
-                        <span className="text-green-500">✓</span> Unlimited boards
+                        <span className="text-green-500">✓</span> 1 active board at a time
                       </li>
                       <li className="flex items-center gap-2">
                         <span className="text-green-500">✓</span> Auto payouts

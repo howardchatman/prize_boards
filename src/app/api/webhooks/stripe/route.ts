@@ -89,14 +89,14 @@ export async function POST(request: Request) {
               const { data: hostProfile } = await supabase
                 .from('profiles')
                 .select('full_name, email')
-                .eq('id', board.host_id)
+                .eq('user_id', board.host_id)
                 .single();
 
               // Get player profile
               const { data: playerProfile } = await supabase
                 .from('profiles')
                 .select('full_name')
-                .eq('id', user_id)
+                .eq('user_id', user_id)
                 .single();
 
               // Count total claimed squares
