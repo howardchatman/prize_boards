@@ -92,7 +92,8 @@ function OnboardingContent() {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        toast.error('Failed to start checkout');
+        console.error('Subscribe error:', data);
+        toast.error(data.details || data.error || 'Failed to start checkout');
         setSubscribing(false);
       }
     } catch {
